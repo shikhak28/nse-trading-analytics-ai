@@ -1,0 +1,40 @@
+# Backend API server
+cd backend
+node server.js
+
+# Historical worker (backfill/EOD sync + instrument-master-refresh)
+cd backend
+node historicalWorker.js
+
+# Depth worker (live ticker + market-hours depth capture)
+cd backend
+node depthWorker.js
+
+# Frontend to run the command
+cd frontend
+npm run dev
+
+
+cd backend
+node historicalWorker.js &
+disown
+
+cd backend
+node depthWorker.js &
+disown
+
+node scripts/depthStatus.js
+
+node backend/scripts/companiesStatus.js
+
+redis-cli -h localhost -p 6379 llen bull:historical-sync:wait
+redis-cli -h localhost -p 6379 llen bull:historical-sync:active
+redis-cli -h localhost -p 6379 lrange bull:historical-sync:wait 0 -1 | sed -E 's/:(day|minute)$//' | sort -u | wc -l
+
+
+ps -eo pid,lstart,etime,cmd | grep "node historicalWorker.js" | grep -v grep
+ps -eo pid,lstart,etime,cmd | grep "node depthWorker.js" | grep -v grep
+
+The & backgrounds it, disown detaches it from the terminal so
+closing the terminal window doesn't kill it. Check they're alive
+anytime with ps aux | grep "node historicalWorker.js\|node depthWorker.js".

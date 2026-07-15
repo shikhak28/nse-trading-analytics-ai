@@ -1,0 +1,361 @@
+<title>Stock Platform — Schema Map</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface-2: #efece4;
+    --border: #d8d3c8;
+    --text: #1e242b;
+    --text-muted: #756f63;
+    --accent-key: #b8862f;
+    --accent-key-soft: #b8862f1a;
+    --accent-link: #3f8f86;
+    --accent-link-soft: #3f8f861a;
+    --shadow: 0 1px 2px rgba(30,36,43,0.06), 0 8px 24px rgba(30,36,43,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12181f;
+      --surface: #1b232d;
+      --surface-2: #212b36;
+      --border: #2e3947;
+      --text: #e8e6de;
+      --text-muted: #8b96a3;
+      --accent-key: #d4a24c;
+      --accent-key-soft: #d4a24c22;
+      --accent-link: #6fa8a0;
+      --accent-link-soft: #6fa8a022;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12181f;
+    --surface: #1b232d;
+    --surface-2: #212b36;
+    --border: #2e3947;
+    --text: #e8e6de;
+    --text-muted: #8b96a3;
+    --accent-key: #d4a24c;
+    --accent-key-soft: #d4a24c22;
+    --accent-link: #6fa8a0;
+    --accent-link-soft: #6fa8a022;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface-2: #efece4;
+    --border: #d8d3c8;
+    --text: #1e242b;
+    --text-muted: #756f63;
+    --accent-key: #b8862f;
+    --accent-key-soft: #b8862f1a;
+    --accent-link: #3f8f86;
+    --accent-link-soft: #3f8f861a;
+    --shadow: 0 1px 2px rgba(30,36,43,0.06), 0 8px 24px rgba(30,36,43,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    padding: 48px 24px 80px;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(26px, 3.4vw, 34px);
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  header p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin: 24px 0 44px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.key { background: var(--accent-key); }
+  .dot.link { background: var(--accent-link); }
+  .swatch-line {
+    width: 22px; height: 0; border-top: 2px dashed var(--accent-link); flex: none;
+  }
+  .swatch-part {
+    width: 14px; height: 14px; border-radius: 3px; flex: none;
+    background: repeating-linear-gradient(135deg, var(--accent-key-soft), var(--accent-key-soft) 3px, transparent 3px, transparent 6px);
+    border: 1px solid var(--accent-key);
+  }
+
+  .diagram { position: relative; overflow-x: auto; padding-bottom: 8px; }
+  .canvas { position: relative; width: 1180px; height: 900px; }
+  svg.links { position: absolute; inset: 0; width: 1180px; height: 900px; overflow: visible; pointer-events: none; }
+  svg.links path {
+    fill: none;
+    stroke: var(--accent-link);
+    stroke-width: 1.6;
+  }
+  svg.links text {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-size: 10.5px;
+    fill: var(--text-muted);
+  }
+  svg.links .link-label-bg {
+    fill: var(--bg);
+  }
+
+  .cluster-label {
+    position: absolute;
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .card {
+    position: absolute;
+    width: 258px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card.standalone { border-style: dashed; opacity: 0.88; }
+  .card.core { width: 288px; }
+
+  .card-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-head .name {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .badge {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--accent-key-soft);
+    color: var(--accent-key);
+    white-space: nowrap;
+  }
+
+  .rows { padding: 6px 0; }
+  .row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 14px;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .row .col-name { color: var(--text); flex: none; }
+  .row .col-type { color: var(--text-muted); font-size: 10.5px; margin-left: auto; }
+  .row.pk .col-name { color: var(--accent-key); font-weight: 600; }
+  .row.pk .col-name::before { content: "●"; font-size: 7px; margin-right: 5px; position: relative; top: -1px; }
+  .row.fk .col-name { color: var(--accent-link); }
+  .row.fk .col-name::before { content: "◆"; font-size: 7px; margin-right: 5px; position: relative; top: -1px; }
+  .row.plain .col-name::before { content: "·"; color: var(--text-muted); margin-right: 6px; }
+  .more {
+    padding: 4px 14px 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  footer {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    max-width: 74ch;
+    line-height: 1.7;
+  }
+  footer code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 11.5px;
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">stock-platform · postgres</p>
+    <h1>Schema map</h1>
+    <p>Seven tables across three independent clusters plus one legacy standalone. Amber dot = primary key, teal diamond = foreign key, teal dashed line = the relationship it points along.</p>
+  </header>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot key"></span> Primary key column</div>
+    <div class="legend-item"><span class="dot link"></span> Foreign key column</div>
+    <div class="legend-item"><span class="swatch-line"></span> References</div>
+    <div class="legend-item"><span class="swatch-part"></span> Partitioned table (by month)</div>
+  </div>
+
+  <div class="diagram">
+    <div class="canvas">
+      <svg class="links" viewBox="0 0 1180 900">
+        <!-- USERS -> BROKER_TOKENS -->
+        <path d="M 169 168 V 232" stroke-dasharray="4 4" marker-end="url(#arrow)"></path>
+        <rect class="link-label-bg" x="176" y="188" width="58" height="14"></rect>
+        <text x="179" y="198">user_id</text>
+
+        <!-- COMPANIES -> HISTORICAL_PRICES -->
+        <path d="M 594 208 V 272" stroke-dasharray="4 4" marker-end="url(#arrow)"></path>
+        <rect class="link-label-bg" x="480" y="228" width="150" height="14"></rect>
+        <text x="483" y="238">(exchange, symbol)</text>
+
+        <!-- AGENT_CONVERSATIONS -> AGENT_ANALYSIS_RESULTS -->
+        <path d="M 1029 168 V 232" stroke-dasharray="4 4" marker-end="url(#arrow)"></path>
+        <rect class="link-label-bg" x="905" y="188" width="128" height="14"></rect>
+        <text x="908" y="198">conversation_id (null ok)</text>
+
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" style="fill: var(--accent-link);"></path>
+          </marker>
+        </defs>
+      </svg>
+
+      <div class="cluster-label" style="left:40px; top:8px;">Auth &amp; connection</div>
+      <div class="cluster-label" style="left:460px; top:8px;">Market data</div>
+      <div class="cluster-label" style="left:900px; top:8px;">AI agent</div>
+      <div class="cluster-label" style="left:40px; top:560px;">Legacy</div>
+
+      <!-- USERS -->
+      <div class="card" style="left:40px; top:32px;">
+        <div class="card-head"><span class="name">users</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">id</span><span class="col-type">serial</span></div>
+          <div class="row plain"><span class="col-name">broker_user_id</span><span class="col-type">varchar · unique</span></div>
+          <div class="row plain"><span class="col-name">user_name</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">email</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">broker</span><span class="col-type">'zerodha'</span></div>
+          <div class="row plain"><span class="col-name">connected_at</span><span class="col-type">timestamp</span></div>
+        </div>
+      </div>
+
+      <!-- BROKER_TOKENS -->
+      <div class="card" style="left:40px; top:232px;">
+        <div class="card-head"><span class="name">broker_tokens</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">id</span><span class="col-type">serial</span></div>
+          <div class="row fk"><span class="col-name">user_id</span><span class="col-type">→ users</span></div>
+          <div class="row plain"><span class="col-name">access_token</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">is_valid</span><span class="col-type">boolean</span></div>
+          <div class="row plain"><span class="col-name">expires_at</span><span class="col-type">timestamp</span></div>
+        </div>
+      </div>
+
+      <!-- COMPANIES -->
+      <div class="card core" style="left:460px; top:32px;">
+        <div class="card-head"><span class="name">companies</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">exchange</span><span class="col-type">varchar(16)</span></div>
+          <div class="row pk"><span class="col-name">symbol</span><span class="col-type">varchar(32)</span></div>
+          <div class="row plain"><span class="col-name">company_name</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">instrument_token</span><span class="col-type">varchar</span></div>
+          <div class="row plain"><span class="col-name">segment</span><span class="col-type">varchar</span></div>
+        </div>
+        <div class="more">PK is the pair (exchange, symbol) — a tradingsymbol isn't unique across exchanges.</div>
+      </div>
+
+      <!-- HISTORICAL_PRICES -->
+      <div class="card core" style="left:460px; top:272px;">
+        <div class="card-head">
+          <span class="name">historical_prices</span>
+          <span class="badge">partitioned</span>
+        </div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">id</span><span class="col-type">bigint</span></div>
+          <div class="row fk"><span class="col-name">exchange, symbol</span><span class="col-type">→ companies</span></div>
+          <div class="row pk"><span class="col-name">candle_timestamp</span><span class="col-type">timestamp</span></div>
+          <div class="row plain"><span class="col-name">interval</span><span class="col-type">'day' | 'minute'</span></div>
+          <div class="row plain"><span class="col-name">open, high, low, close</span><span class="col-type">numeric</span></div>
+          <div class="row plain"><span class="col-name">volume</span><span class="col-type">numeric</span></div>
+        </div>
+        <div class="more">~49 monthly range partitions on candle_timestamp, 2023-07 → 2027-06, plus a default catch-all.</div>
+      </div>
+
+      <!-- AGENT_CONVERSATIONS -->
+      <div class="card" style="left:900px; top:32px;">
+        <div class="card-head"><span class="name">agent_conversations</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">id</span><span class="col-type">serial</span></div>
+          <div class="row plain"><span class="col-name">session_id</span><span class="col-type">varchar</span></div>
+          <div class="row plain"><span class="col-name">role</span><span class="col-type">user|assistant|tool</span></div>
+          <div class="row plain"><span class="col-name">content</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">tool_calls</span><span class="col-type">jsonb</span></div>
+        </div>
+      </div>
+
+      <!-- AGENT_ANALYSIS_RESULTS -->
+      <div class="card" style="left:900px; top:232px;">
+        <div class="card-head"><span class="name">agent_analysis_results</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">id</span><span class="col-type">serial</span></div>
+          <div class="row fk"><span class="col-name">conversation_id</span><span class="col-type">→ agent_conv.</span></div>
+          <div class="row plain"><span class="col-name">query_text</span><span class="col-type">text</span></div>
+          <div class="row plain"><span class="col-name">result_type</span><span class="col-type">varchar</span></div>
+          <div class="row plain"><span class="col-name">symbols_involved</span><span class="col-type">text[]</span></div>
+        </div>
+        <div class="more">ON DELETE SET NULL — deleting a conversation keeps its analysis history.</div>
+      </div>
+
+      <!-- APP_SETTINGS -->
+      <div class="card standalone" style="left:40px; top:584px;">
+        <div class="card-head"><span class="name">app_settings</span></div>
+        <div class="rows">
+          <div class="row pk"><span class="col-name">key</span><span class="col-type">varchar</span></div>
+          <div class="row plain"><span class="col-name">value</span><span class="col-type">text</span></div>
+        </div>
+        <div class="more">Legacy key/value store, predates users/broker_tokens. No active FK — kept, not dropped.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Generated from migrations <code>001</code>–<code>008</code> in <code>postgres/migrations/</code>. For the full column list of every table, see <code>docs/ER_DIAGRAM.md</code> (Mermaid source) in the repo.
+  </footer>
+</div>
