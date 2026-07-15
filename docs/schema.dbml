@@ -1,0 +1,97 @@
+
+
+Table users {
+  id serial [pk]
+  broker_user_id varchar(64) [unique, not null]
+  user_name text
+  email text
+  broker varchar(32) [default: 'zerodha']
+  connected_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table broker_tokens {
+  id serial [pk]
+  user_id integer [ref: > users.id, not null]
+  access_token text [not null]
+  token_type varchar(32) [default: 'bearer']
+  generated_at timestamp
+  expires_at timestamp
+  is_valid boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, is_valid, generated_at) [name: 'idx_broker_tokens_active']
+  }
+}
+
+Table companies {
+  exchange varchar(16) [pk]
+  symbol varchar(32) [pk]
+  company_name text
+  instrument_token varchar(64)
+  segment varchar(64)
+  exchange_token varchar(64)
+  updated_at timestamp
+
+  Note: 'Composite PK (exchange, symbol) -- a tradingsymbol is not unique across exchanges (e.g. RELIANCE trades on both NSE and BSE with different instrument_tokens).'
+}
+
+Table historical_prices {
+  id bigint [pk]
+  exchange varchar(16) [not null]
+  symbol varchar(32) [not null]
+  instrument_token varchar(64)
+  interval varchar(32) [note: "'day' or 'minute'"]
+  candle_timestamp timestamp [pk]
+  open numeric
+  high numeric
+  low numeric
+  close numeric
+  volume numeric
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (exchange, symbol, interval, candle_timestamp) [unique]
+  }
+
+  Note: 'PARTITIONED BY RANGE (candle_timestamp) -- ~49 monthly partitions, 2023-07 through 2027-06, plus a DEFAULT catch-all. PK is composite (id, candle_timestamp) because Postgres requires the partition key in every unique/PK constraint.'
+}
+
+Ref: historical_prices.(exchange, symbol) > companies.(exchange, symbol)
+
+Table agent_conversations {
+  id serial [pk]
+  session_id varchar(64) [not null]
+  role varchar(16) [note: "'user', 'assistant', or 'tool'"]
+  content text
+  tool_calls jsonb
+  created_at timestamp
+
+  indexes {
+    (session_id, created_at) [name: 'idx_agent_conversations_session']
+  }
+}
+
+Table agent_analysis_results {
+  id serial [pk]
+  conversation_id integer [ref: > agent_conversations.id]
+  query_text text [not null]
+  result_type varchar(64)
+  result_json jsonb
+  symbols_involved "text[]"
+  created_at timestamp
+
+  Note: 'conversation_id is nullable, ON DELETE SET NULL -- deleting a conversation keeps its analysis history.'
+}
+
+Table app_settings {
+  key varchar(255) [pk]
+  value text
+  updated_at timestamp
+
+  Note: 'Legacy key/value store, predates users/broker_tokens. No active FK -- kept, not dropped.'
+}
