@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import { ThemeContext } from "./themeContext";
+import { createContext, useEffect, useState } from "react";
+
+// Deliberately defined in this same file rather than a separate
+// themeContext.js -- see AuthContext.jsx for why the same-directory,
+// case-only-differing filename pair broke on Windows.
+export const ThemeContext = createContext(null);
 
 const getInitialTheme = () => {
   if (typeof window === "undefined") return false;
