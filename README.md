@@ -169,34 +169,7 @@ git clone <your-repo-url>
 cd stock-platform
 ```
 
-### Step 3 — Set up environment variables
-
-Create a file named `.env` in the project root (`stock-platform\.env`) with:
-
-```
-PORT=5000
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=stockdb
-DB_USER=admin
-DB_PASSWORD=admin
-
-REDIS_URL=redis://localhost:6379
-
-KITE_API_KEY=your_kite_api_key
-KITE_API_SECRET=your_kite_api_secret
-KITE_ACCESS_TOKEN=
-KITE_REDIRECT_URL=http://localhost:5000/auth/callback
-FRONTEND_URL=http://localhost:5173
-
-OLLAMA_HOST=http://127.0.0.1:11434
-OLLAMA_MODEL=llama3.1
-```
-
-Replace `your_kite_api_key` / `your_kite_api_secret` with the values from your Kite Connect app. Leave `KITE_ACCESS_TOKEN` blank — you'll get that by logging in through the app itself once it's running (Zerodha access tokens expire roughly daily and have no refresh-token flow, so you'll re-login through the UI whenever it expires).
-
-### Step 4 — Start Postgres + Redis
+### Step 3 — Start Postgres + Redis
 
 In PowerShell, from the project root:
 
@@ -212,7 +185,7 @@ docker ps
 
 You should see both containers with status `Up`.
 
-### Step 5 — Install dependencies
+### Step 4 — Install dependencies
 
 ```powershell
 cd backend
@@ -222,7 +195,7 @@ npm install
 cd ..
 ```
 
-### Step 6 — Run database migrations
+### Step 5 — Run database migrations
 
 ```powershell
 cd backend
@@ -231,9 +204,9 @@ npm run migrate
 
 This applies every SQL file in `postgres/migrations/` in order. It's idempotent (tracks what's already applied), so it's always safe to re-run.
 
-### Step 7 — Start everything (five terminals)
+### Step 6 — Start everything (five terminals)
 
-Open **Windows Terminal** (recommended — lets you have multiple tabs) or five separate PowerShell windows. Docker is already running from Step 4, so you need:
+Open **Windows Terminal** (recommended — lets you have multiple tabs) or five separate PowerShell windows. Docker is already running from Step 3, so you need:
 
 **Terminal 1 — API server**
 ```powershell
@@ -261,7 +234,7 @@ npm run dev
 
 Open **http://localhost:5173** in your browser, and log in through the Zerodha connect flow (this is what fills in `KITE_ACCESS_TOKEN` behind the scenes).
 
-### Step 8 — First-time data population (one-off)
+### Step 7 — First-time data population (one-off)
 
 The `companies` table starts empty. To populate it and kick off the historical backfill:
 
