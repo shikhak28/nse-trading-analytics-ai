@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
 import { authApi } from "../api/authApi";
-import { AuthContext } from "./authContext";
+
+// Deliberately defined in this same file rather than a separate
+// authContext.js -- a same-directory pair differing only by case
+// (authContext.js / AuthContext.jsx) resolves fine on Linux's
+// case-sensitive filesystem but silently resolves to the wrong file on
+// Windows/macOS's default case-insensitive filesystem, which broke this
+// exact import on a Windows machine.
+export const AuthContext = createContext(null);
 
 // Zerodha tokens have no refresh flow and can be invalidated mid-session
 // (e.g. a Kite API call elsewhere returns a 403). Re-checking periodically
