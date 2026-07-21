@@ -13,6 +13,7 @@ const authRoutes = require("./routes/auth.routes");
 const marketRoutes = require("./routes/market.routes");
 const agentRoutes = require("./routes/agent.routes");
 const portfolioRoutes = require("./routes/portfolio.routes");
+const gttRoutes = require("./routes/gtt.routes");
 const marketSocket = require("./realtime/marketSocket");
 
 const app = express();
@@ -24,6 +25,7 @@ app.use("/auth", authRoutes);
 app.use("/market", marketRoutes);
 app.use("/agent", agentRoutes);
 app.use("/portfolio", portfolioRoutes);
+app.use("/gtt", gttRoutes);
 
 /**
  * Health Check
