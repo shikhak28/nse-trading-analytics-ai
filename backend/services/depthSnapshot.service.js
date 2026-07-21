@@ -106,4 +106,21 @@ async function getStoredDepthSnapshots(symbol, exchange = "NSE", from, to, limit
     return result.rows;
 }
 
-module.exports = { saveSnapshots, getStoredDepthSnapshots, COLUMNS };
+/**
+ * Most recent depth snapshot timestamp across all symbols -- used by the
+ * dashboard to show how fresh the captured order-book data is. Depth is
+ * capture-only-going-forward (no historical-depth API, see migration 009),
+ * so the last 7 days always contains the true max; bounding the scan avoids
+ * fanning out across every monthly partition (same lesson as the
+ * historical_prices queries in market.service.js).
+ */
+async function getLatestSnapshotTimestamp() {
+    const result = await db.query(
+        `SELECT MAX(snapshot_timestamp) AS last_snapshot FROM depth_snapshots
+         WHERE snapshot_timestamp >= NOW() - INTERVAL '7 days'`
+    );
+
+    return result.rows[0]?.last_snapshot || null;
+}
+
+module.exports = { saveSnapshots, getStoredDepthSnapshots, getLatestSnapshotTimestamp, COLUMNS };

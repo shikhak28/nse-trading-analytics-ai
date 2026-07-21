@@ -38,3 +38,39 @@ ps -eo pid,lstart,etime,cmd | grep "node depthWorker.js" | grep -v grep
 The & backgrounds it, disown detaches it from the terminal so
 closing the terminal window doesn't kill it. Check they're alive
 anytime with ps aux | grep "node historicalWorker.js\|node depthWorker.js".
+
+
+=====================================================================
+Windows / PowerShell - streaming setup & verification (new machine)
+=====================================================================
+
+# 1. Check Redis (Memurai) is running
+Get-Service Memurai
+# Status should be "Running"
+
+# 2. Start the API server (in backend/ folder)
+node server.js
+# Look for: [realtime] socket.io market relay attached
+
+# 3. Start the live-ticker worker (in backend/ folder, separate terminal)
+node depthWorker.js
+# or: npm run worker:depth
+# Look for, in order:
+#   [live-ticker] listening for subscription requests
+#   [live-ticker] connected to Zerodha
+#   [live-ticker] permanently subscribed to <N> tracked companies for depth capture
+# If "connected to Zerodha" never shows: finish the Zerodha login in the
+# browser first, then wait ~30s for the worker to pick up the new token.
+
+# 4. Verify ticks are flowing (market hours only: 9:15-15:30 IST)
+& "C:\Program Files\Memurai\memurai-cli.exe" GET quote:RELIANCE
+# Run twice a few seconds apart - "updated_at" should advance, "ltp" should change.
+# Swap RELIANCE for any tracked symbol.
+
+# 5. Confirm end-to-end in the browser
+# Open the frontend Dashboard / a stock page and check a live tile updates.
+
+# Notes:
+# - No ticks outside market hours is expected, not a bug.
+# - Zerodha tokens don't refresh; if the connection later drops with auth
+#   errors, redo the Zerodha login (Reconnect Zerodha banner).

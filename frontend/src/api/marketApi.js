@@ -45,6 +45,19 @@ export const marketApi = {
     return data;
   },
 
+  fetchMoversRange: async ({ min, max, exchange, limit } = {}) => {
+    const params = { min, max };
+    if (exchange) params.exchange = exchange;
+    if (limit) params.limit = limit;
+    const { data } = await client.get("/market/movers/range", { params });
+    return data;
+  },
+
+  fetchDepthSummary: async () => {
+    const { data } = await client.get("/market/depth/summary");
+    return data;
+  },
+
   fetchStoredDepth: async (symbol, exchange, from, to, limit) => {
     const params = { symbol, exchange };
     if (from) params.from = from;

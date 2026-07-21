@@ -22,17 +22,12 @@ function toNumberOrNull(value) {
 }
 
 /**
- * Ranks tracked companies by a live-quote metric (gainers/losers/volume/
- * top_bid/top_sell). Companies with no cached quote yet (outside market
- * hours, or newly added and not yet ticked) are excluded rather than sorted
- * in as zeros -- "top volume" showing untraded symbols first would be wrong.
+ * Fetches every tracked company merged with its live Redis quote fields.
+ * Shared by getTopMovers (ranks by one metric) and getByChangeRange (filters
+ * by a change_percent window) so the company-list + Redis-pipeline lookup
+ * isn't duplicated between them.
  */
-async function getTopMovers({ type, exchange, limit = 20 }) {
-    const metric = METRICS[type];
-    if (!metric) {
-        throw new Error(`Unknown movers type: ${type}. Expected one of ${Object.keys(METRICS).join(", ")}`);
-    }
-
+async function getAllWithQuotes(exchange) {
     const companies = await marketService.getCompanies({ exchange, limit: 10000 });
     if (companies.length === 0) {
         return [];
@@ -44,7 +39,7 @@ async function getTopMovers({ type, exchange, limit = 20 }) {
     }
     const results = await pipeline.exec();
 
-    const merged = companies.map((company, index) => {
+    return companies.map((company, index) => {
         const [ltp, changePercent, volume, totalBuyQuantity, totalSellQuantity] = results[index][1] || [];
         return {
             symbol: company.symbol,
@@ -57,6 +52,21 @@ async function getTopMovers({ type, exchange, limit = 20 }) {
             total_sell_quantity: toNumberOrNull(totalSellQuantity),
         };
     });
+}
+
+/**
+ * Ranks tracked companies by a live-quote metric (gainers/losers/volume/
+ * top_bid/top_sell). Companies with no cached quote yet (outside market
+ * hours, or newly added and not yet ticked) are excluded rather than sorted
+ * in as zeros -- "top volume" showing untraded symbols first would be wrong.
+ */
+async function getTopMovers({ type, exchange, limit = 20 }) {
+    const metric = METRICS[type];
+    if (!metric) {
+        throw new Error(`Unknown movers type: ${type}. Expected one of ${Object.keys(METRICS).join(", ")}`);
+    }
+
+    const merged = await getAllWithQuotes(exchange);
 
     return merged
         .filter((row) => row[metric.field] != null)
@@ -64,4 +74,22 @@ async function getTopMovers({ type, exchange, limit = 20 }) {
         .slice(0, limit);
 }
 
-module.exports = { getTopMovers, METRICS: Object.keys(METRICS) };
+/**
+ * Screens tracked companies for today's live change_percent falling within
+ * [min, max] -- e.g. "companies up 3-5% today". Same excluded-if-no-quote
+ * rule as getTopMovers.
+ */
+async function getByChangeRange({ min, max, exchange, limit = 50 }) {
+    if (typeof min !== "number" || typeof max !== "number" || Number.isNaN(min) || Number.isNaN(max)) {
+        throw new Error("min and max must be numbers");
+    }
+
+    const merged = await getAllWithQuotes(exchange);
+
+    return merged
+        .filter((row) => row.change_percent != null && row.change_percent >= min && row.change_percent <= max)
+        .sort((a, b) => b.change_percent - a.change_percent)
+        .slice(0, limit);
+}
+
+module.exports = { getTopMovers, getByChangeRange, METRICS: Object.keys(METRICS) };
