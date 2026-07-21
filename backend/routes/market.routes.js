@@ -83,6 +83,46 @@ router.get("/movers", async (req, res) => {
 });
 
 /**
+ * Companies whose live change_percent falls within [min, max] -- e.g. the
+ * dashboard's "3-5% Change" screen. Same Redis-backed live-quote source as
+ * /movers, just filtered by a range instead of ranked by a single metric.
+ */
+router.get("/movers/range", async (req, res) => {
+    try {
+        const { min, max, exchange, limit } = req.query;
+
+        if (min === undefined || max === undefined) {
+            return res.status(400).json({ success: false, message: "min and max query parameters are required" });
+        }
+
+        const results = await moversService.getByChangeRange({
+            min: Number(min),
+            max: Number(max),
+            exchange,
+            limit: limit ? Number(limit) : undefined,
+        });
+        return res.json({ success: true, min: Number(min), max: Number(max), results });
+    } catch (err) {
+        console.error("Movers range fetch error:", err);
+        return res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * Most recent depth snapshot timestamp across all symbols -- lets the
+ * dashboard show how fresh the captured order-book data is.
+ */
+router.get("/depth/summary", async (req, res) => {
+    try {
+        const lastSnapshot = await depthSnapshotService.getLatestSnapshotTimestamp();
+        return res.json({ success: true, last_snapshot: lastSnapshot });
+    } catch (err) {
+        console.error("Depth summary fetch error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
  * Stored depth snapshots for a single symbol -- most recent first, capped at
  * `limit` rows (depth is captured every minute during market hours, so this
  * can add up fast; the caller narrows with from/to for a specific day).

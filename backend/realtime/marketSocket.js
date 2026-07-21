@@ -48,10 +48,7 @@ function attach(io) {
 
             const cached = await redis.hgetall(`quote:${symbol}`);
             if (cached && Object.keys(cached).length > 0) {
-                // depth is stored JSON-encoded in the hash (see
-                // liveTicker.service.js's handleTicks) since Redis hash
-                // fields can't hold nested objects -- decode it back out
-                // before handing the snapshot to the browser.
+                
                 let depth = null;
                 try {
                     depth = cached.depth ? JSON.parse(cached.depth) : null;
