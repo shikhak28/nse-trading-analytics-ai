@@ -66,4 +66,19 @@ export const marketApi = {
     const { data } = await client.get("/market/depth/stored", { params });
     return data;
   },
+
+  getGTTs: async () => {
+    const { data } = await client.get("/gtt");
+    return data;
+  },
+
+  createGTT: async (payload) => {
+    const { data } = await client.post("/gtt", payload);
+    return data;
+  },
+
+  deleteGTT: async (triggerId) => {
+    const { data } = await client.delete(`/gtt/${triggerId}`);
+    return data;
+  },
 };
