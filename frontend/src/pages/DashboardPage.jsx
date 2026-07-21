@@ -24,7 +24,6 @@ const DashboardPage = () => {
   const { isAuthenticated } = useAuth();
   const [historySummary, setHistorySummary] = useState([]);
   const [depthSummary, setDepthSummary] = useState(null);
-  const [syncLoading, setSyncLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
@@ -310,12 +309,18 @@ const DashboardPage = () => {
 
         <div className="space-y-3">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
+<<<<<<< HEAD
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Historical Sync</h3>
                
               </div>
              
+=======
+            <div className="mb-4">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Historical Sync</h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm mt-2">Store 3 years of candle data for selected companies</p>
+>>>>>>> 0b6ad5fb1f1d5b5dfa938fd8120b29f2745a0c73
             </div>
 
             <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 p-3 mb-3 text-[12px] text-slate-700 dark:text-slate-300 space-y-1">
