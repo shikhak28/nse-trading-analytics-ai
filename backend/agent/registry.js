@@ -4,10 +4,11 @@ const calculateIndicator = require("./tools/calculateIndicator.tool");
 const screenByRsi = require("./tools/screenByRsi.tool");
 const findBreakouts = require("./tools/findBreakouts.tool");
 const scanVolume = require("./tools/scanVolume.tool");
+const growthAfterThreshold = require("./tools/growthAfterThreshold.tool");
 
 // Adding a new tool is: write a file in ./tools with { name, description,
 // parameters, execute() }, then list it here.
-const tools = [getHistoricalData, compareStocks, calculateIndicator, screenByRsi, findBreakouts, scanVolume];
+const tools = [getHistoricalData, compareStocks, calculateIndicator, screenByRsi, findBreakouts, scanVolume, growthAfterThreshold];
 
 const toolsByName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
 
