@@ -81,4 +81,39 @@ export const marketApi = {
     const { data } = await client.delete(`/gtt/${triggerId}`);
     return data;
   },
+
+  modifyGTT: async (triggerId, payload) => {
+    const { data } = await client.put(`/gtt/${triggerId}`, payload);
+    return data;
+  },
+
+  getGttRules: async () => {
+    const { data } = await client.get("/gtt/rules");
+    return data;
+  },
+
+  createGttRule: async (payload) => {
+    const { data } = await client.post("/gtt/rules", payload);
+    return data;
+  },
+
+  updateGttRule: async (id, payload) => {
+    const { data } = await client.put(`/gtt/rules/${id}`, payload);
+    return data;
+  },
+
+  deleteGttRule: async (id) => {
+    const { data } = await client.delete(`/gtt/rules/${id}`);
+    return data;
+  },
+
+  getOrders: async () => {
+    const { data } = await client.get("/orders");
+    return data;
+  },
+
+  cancelOrder: async (variety, orderId) => {
+    const { data } = await client.delete(`/orders/${variety}/${orderId}`);
+    return data;
+  },
 };
