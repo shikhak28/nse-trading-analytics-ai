@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { marketApi } from "../api/marketApi";
 import { CompanyRow, CompanyRowHeader } from "../components/CompanyRow";
 import { CompanyDetailModal } from "../components/CompanyDetailModal";
+import { SyncSymbolPanel } from "../components/SyncSymbolPanel";
 import { useLiveQuotes } from "../hooks/useLiveQuotes";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -400,6 +401,8 @@ const DashboardPage = () => {
               )}
             </div>
           </div>
+
+          <SyncSymbolPanel />
         </div>
       </div>
 
