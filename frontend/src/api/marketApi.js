@@ -30,8 +30,9 @@ export const marketApi = {
     return data;
   },
 
-  syncHistorical: async (symbols, interval = "day", from, to) => {
+  syncHistorical: async (symbols, interval = "day", exchange, from, to) => {
     const params = { symbols, interval };
+    if (exchange) params.exchange = exchange;
     if (from) params.from = from;
     if (to) params.to = to;
     const { data } = await client.post("/market/historical/sync", null, { params });
