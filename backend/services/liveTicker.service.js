@@ -31,6 +31,8 @@ function buildTickPayload(tick, symbol) {
         depth: tick.depth ?? null,
         total_buy_quantity: tick.total_buy_quantity ?? null,
         total_sell_quantity: tick.total_sell_quantity ?? null,
+        upper_circuit_limit: tick.upper_circuit_limit ?? null,
+        lower_circuit_limit: tick.lower_circuit_limit ?? null,
         updated_at: new Date().toISOString(),
     };
 }
