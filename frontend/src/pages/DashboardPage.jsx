@@ -257,13 +257,32 @@ const DashboardPage = () => {
         <p className="text-slate-500 dark:text-slate-400 mt-2 text-xs">Track companies, stock performance and trading activity</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
         {stats.map((item) => (
           <div key={item.label} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
             <p className="text-slate-500 dark:text-slate-400 text-[12px]">{item.label}</p>
             <h2 className="text-lg font-semibold mt-2 text-slate-800 dark:text-slate-100">{item.value}</h2>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm h-full flex flex-col justify-center">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-2">
+            Catch up the database
+          </h3>
+          <button
+            onClick={handleSyncLatest}
+            disabled={syncingLatest}
+            className="rounded-md bg-blue-600 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold text-white hover:bg-blue-500 w-full sm:w-auto self-start"
+          >
+            {syncingLatest ? "Queuing..." : "Sync latest data now"}
+          </button>
+          {syncLatestMessage && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">{syncLatestMessage}</p>}
+          {syncLatestError && <p className="text-[11px] text-red-600 dark:text-red-400 mt-2">{syncLatestError}</p>}
+        </div>
+
+        <SyncSymbolPanel />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
@@ -410,16 +429,6 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleSyncLatest}
-              disabled={syncingLatest}
-              className="w-full rounded-md bg-blue-600 disabled:opacity-40 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-500 mb-2"
-            >
-              {syncingLatest ? "Queuing..." : "Sync latest data now"}
-            </button>
-            {syncLatestMessage && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mb-2">{syncLatestMessage}</p>}
-            {syncLatestError && <p className="text-[11px] text-red-600 dark:text-red-400 mb-2">{syncLatestError}</p>}
-
             <div className="space-y-3 text-[12px] text-slate-700 dark:text-slate-300">
               {historySummary.slice(0, 3).map((item) => (
                 <div key={`${item.symbol}-${item.interval}`} className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 p-3">
@@ -438,8 +447,6 @@ const DashboardPage = () => {
               )}
             </div>
           </div>
-
-          <SyncSymbolPanel />
         </div>
       </div>
 
