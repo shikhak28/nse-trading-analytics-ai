@@ -5,6 +5,7 @@ const router = express.Router();
 const marketService = require("../services/market.service");
 const depthSnapshotService = require("../services/depthSnapshot.service");
 const moversService = require("../services/movers.service");
+const dailyMoversService = require("../services/dailyMovers.service");
 const authService = require("../services/auth.service");
 const kite = require("../config/kite");
 const { enqueueSymbolSync } = require("../queues");
@@ -104,6 +105,45 @@ router.get("/movers/range", async (req, res) => {
         return res.json({ success: true, min: Number(min), max: Number(max), results });
     } catch (err) {
         console.error("Movers range fetch error:", err);
+        return res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * Dates that have a stored daily-movers snapshot, most recent first -- backs
+ * the dashboard's day-filter dropdown.
+ */
+router.get("/movers/history/dates", async (req, res) => {
+    try {
+        const dates = await dailyMoversService.getAvailableSnapshotDates(30);
+        return res.json({ success: true, results: dates.map((d) => d.toISOString().slice(0, 10)) });
+    } catch (err) {
+        console.error("Movers history dates fetch error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * Persisted top gainers/losers/volume/top_bid/top_sell for a past date (see
+ * dailyMovers.service.js + jobs/dailyMoversSnapshot.job.js) -- unlike
+ * /movers (live, Redis-backed, "right now only"), this reads a stored daily
+ * leaderboard so past days can be browsed.
+ */
+router.get("/movers/history", async (req, res) => {
+    try {
+        const { date, type, limit } = req.query;
+
+        if (!date) {
+            return res.status(400).json({ success: false, message: "date query parameter is required (YYYY-MM-DD)" });
+        }
+        if (!type) {
+            return res.status(400).json({ success: false, message: `type query parameter is required (one of ${dailyMoversService.METRICS.join(", ")})` });
+        }
+
+        const results = await dailyMoversService.getDailyMovers(date, type, limit ? Number(limit) : undefined);
+        return res.json({ success: true, date, type, results });
+    } catch (err) {
+        console.error("Movers history fetch error:", err);
         return res.status(400).json({ success: false, message: err.message });
     }
 });
