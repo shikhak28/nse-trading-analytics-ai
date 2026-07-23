@@ -78,3 +78,26 @@ node depthWorker.js
 
 -----------
 UlYdX0mywddtXZsxY2DM23vyJApL07nZ
+
+
+SELECT * FROM historical_prices WHERE symbol = 'RELIANCE' AND interval = 'day';
+
+=====================================================================
+Export historical data to CSV
+=====================================================================
+
+# Option 1: pgAdmin (GUI)
+# Connect to localhost:5432, database stockdb -> Query Tool -> run the
+# SELECT above (or any filtered query) -> click the download/export icon
+# on the results grid -> CSV.
+
+# Option 2: psql \copy (better for large exports, e.g. a whole symbol's
+# 3-year history -- pgAdmin's grid export gets slow/heavy past a few
+# hundred thousand rows)
+docker exec stock-postgres psql -U admin -d stockdb -c "\copy (SELECT * FROM historical_prices WHERE symbol='RELIANCE' AND interval='day') TO '/tmp/reliance.csv' WITH CSV HEADER"
+docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
+
+# Careful with "all" data: historical_prices has 136M+ rows across all
+# 2388 companies and 3 years -- exporting the whole table as one CSV
+# would be 10+ GB and impractical to open. Filter by symbol/exchange/date
+# range instead (swap the WHERE clause above).
