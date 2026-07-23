@@ -11,6 +11,7 @@ const { historicalSchedulerQueue } = require("./queues");
 const { processHistoricalSync } = require("./jobs/historicalSync.job");
 const { processDailyEodSync } = require("./jobs/dailyEodSync.job");
 const { processInstrumentMasterRefresh } = require("./jobs/instrumentMasterRefresh.job");
+const { processDailyMoversSnapshot } = require("./jobs/dailyMoversSnapshot.job");
 
 // Kite's historical-data endpoint has a low rate limit; keep this
 // conservative regardless of how many symbols are queued at once.
@@ -28,6 +29,9 @@ const historicalSchedulerWorker = new Worker(
         }
         if (job.name === "instrument-master-refresh") {
             return processInstrumentMasterRefresh(job);
+        }
+        if (job.name === "daily-movers-snapshot") {
+            return processDailyMoversSnapshot();
         }
         throw new Error(`Unknown historical-scheduler job: ${job.name}`);
     },
@@ -66,7 +70,15 @@ async function registerSchedules() {
         { repeat: { pattern: "0 15 3 * * 0", tz: "Asia/Kolkata" }, jobId: "instrument-master-refresh-bse" }
     );
 
-    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE+BSE).");
+    // 7:00 AM IST, every day -- computes yesterday's movers leaderboard,
+    // once the previous day's EOD sync has had all night to finish draining.
+    await historicalSchedulerQueue.add(
+        "daily-movers-snapshot",
+        {},
+        { repeat: { pattern: "0 0 7 * * *", tz: "Asia/Kolkata" }, jobId: "daily-movers-snapshot" }
+    );
+
+    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE+BSE), daily-movers-snapshot.");
 }
 
 registerSchedules().catch((err) => {

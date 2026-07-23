@@ -3,6 +3,7 @@ import { List } from "react-window";
 import { useAuth } from "../hooks/useAuth";
 import { marketApi } from "../api/marketApi";
 import { CompanyRow, CompanyRowHeader } from "../components/CompanyRow";
+import { CompanyDetailModal } from "../components/CompanyDetailModal";
 import { useLiveQuotes } from "../hooks/useLiveQuotes";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -34,6 +35,9 @@ const DashboardPage = () => {
   const [companiesError, setCompaniesError] = useState(null);
   const [totalCompanies, setTotalCompanies] = useState(0);
   const [visibleRange, setVisibleRange] = useState({ startIndex: 0, stopIndex: 15 });
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedDay, setSelectedDay] = useState("today");
+  const [historyDates, setHistoryDates] = useState([]);
 
   // Only subscribe to live ticks for rows actually scrolled into view --
   // not all 2000+ fetched companies -- so the backend only asks Kite to
@@ -82,6 +86,23 @@ const DashboardPage = () => {
     loadTotalCount();
   }, []);
 
+  // Dates that have a stored daily-movers snapshot -- backs the day-filter
+  // dropdown on the "Top X" tabs (see backend/services/dailyMovers.service.js).
+  useEffect(() => {
+    const loadHistoryDates = async () => {
+      try {
+        const data = await marketApi.fetchMoversHistoryDates();
+        if (data.success) {
+          setHistoryDates(data.results);
+        }
+      } catch (err) {
+        console.error("Failed to load movers history dates", err);
+      }
+    };
+
+    loadHistoryDates();
+  }, []);
+
   // Debounced company search -- refetches from the backend (pg_trgm-indexed)
   // instead of filtering client-side. Paginated 50-at-a-time via limit/offset
   // rather than fetching the full company list. Only runs in "all companies"
@@ -110,8 +131,9 @@ const DashboardPage = () => {
     return () => clearTimeout(handle);
   }, [search, filter, page]);
 
-  // "Top X" filters rank by a live-quote metric (see backend/services/movers.service.js)
-  // instead of the alphabetical/search listing above.
+  // "Top X" filters rank by a live-quote metric for "today" (see
+  // backend/services/movers.service.js) or, for a past day, by the persisted
+  // snapshot a nightly job stores (see backend/services/dailyMovers.service.js).
   useEffect(() => {
     if (filter === "all" || filter === "range") return;
     let ignore = false;
@@ -120,10 +142,22 @@ const DashboardPage = () => {
       setCompaniesLoading(true);
       setCompaniesError(null);
       try {
-        const data = await marketApi.fetchMovers(filter, 50);
+        const data =
+          selectedDay === "today"
+            ? await marketApi.fetchMovers(filter, 50)
+            : await marketApi.fetchMoversHistory(selectedDay, filter, 50);
         if (ignore) return;
         if (data.success) {
-          setCompanies(data.results);
+          setCompanies(
+            selectedDay === "today"
+              ? data.results
+              : data.results.map((row) => ({
+                  ...row,
+                  last_close: row.close,
+                  last_volume: row.volume,
+                  last_candle_at: row.snapshot_date,
+                }))
+          );
         } else {
           setCompaniesError(data.message || "Unable to load top companies.");
         }
@@ -138,7 +172,7 @@ const DashboardPage = () => {
     return () => {
       ignore = true;
     };
-  }, [filter]);
+  }, [filter, selectedDay]);
 
   // "% Change Screen" tab -- companies whose live change_percent today falls
   // within [rangeMin, rangeMax] (see backend's /market/movers/range).
@@ -174,7 +208,10 @@ const DashboardPage = () => {
     setFilter(value);
     setSearch("");
     setPage(0);
+    setSelectedDay("today");
   };
+
+  const isTopXFilter = !["all", "range"].includes(filter);
 
   const lastSyncedAt = useMemo(() => historySummary[0]?.last_candle, [historySummary]);
 
@@ -238,6 +275,23 @@ const DashboardPage = () => {
                 className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl px-5 py-3 w-80 outline-none focus:border-blue-400 shadow-sm text-slate-800 dark:text-slate-100"
               />
             )}
+            {isTopXFilter && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <span className="text-xs">Day</span>
+                <select
+                  value={selectedDay}
+                  onChange={(event) => setSelectedDay(event.target.value)}
+                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 outline-none focus:border-blue-400 text-slate-800 dark:text-slate-100 text-xs"
+                >
+                  <option value="today">Today (live)</option>
+                  {historyDates.map((date, index) => (
+                    <option key={date} value={date}>
+                      {index === 0 ? "Yesterday" : index === 1 ? "Day before yesterday" : date}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {filter === "range" && (
               <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <span>Change %</span>
@@ -274,7 +328,7 @@ const DashboardPage = () => {
               rowComponent={CompanyRow}
               rowCount={companies.length}
               rowHeight={56}
-              rowProps={{ companies, quotes: liveQuotes }}
+              rowProps={{ companies, quotes: liveQuotes, onRowClick: setSelectedCompany }}
               onRowsRendered={(visibleRows) =>
                 setVisibleRange((prev) =>
                   prev.startIndex === visibleRows.startIndex && prev.stopIndex === visibleRows.stopIndex
@@ -348,6 +402,8 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      <CompanyDetailModal key={selectedCompany?.symbol} company={selectedCompany} onClose={() => setSelectedCompany(null)} />
     </div>
   );
 };

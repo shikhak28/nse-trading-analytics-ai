@@ -53,6 +53,18 @@ export const marketApi = {
     return data;
   },
 
+  fetchMoversHistoryDates: async () => {
+    const { data } = await client.get("/market/movers/history/dates");
+    return data;
+  },
+
+  fetchMoversHistory: async (date, type, limit) => {
+    const params = { date, type };
+    if (limit) params.limit = limit;
+    const { data } = await client.get("/market/movers/history", { params });
+    return data;
+  },
+
   fetchDepthSummary: async () => {
     const { data } = await client.get("/market/depth/summary");
     return data;
