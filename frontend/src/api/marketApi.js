@@ -54,6 +54,11 @@ export const marketApi = {
     return data;
   },
 
+  syncLatest: async () => {
+    const { data } = await client.post("/market/historical/sync-latest");
+    return data;
+  },
+
   fetchMoversHistoryDates: async () => {
     const { data } = await client.get("/market/movers/history/dates");
     return data;
