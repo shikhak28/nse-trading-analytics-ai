@@ -39,6 +39,9 @@ const DashboardPage = () => {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedDay, setSelectedDay] = useState("today");
   const [historyDates, setHistoryDates] = useState([]);
+  const [syncingLatest, setSyncingLatest] = useState(false);
+  const [syncLatestMessage, setSyncLatestMessage] = useState(null);
+  const [syncLatestError, setSyncLatestError] = useState(null);
 
   // Only subscribe to live ticks for rows actually scrolled into view --
   // not all 2000+ fetched companies -- so the backend only asks Kite to
@@ -205,6 +208,30 @@ const DashboardPage = () => {
     };
   }, [filter, rangeMin, rangeMax]);
 
+  // "Sync latest data" button -- queues the same day+minute resumable sync
+  // for every company that the 4:30 PM IST schedule fires automatically (see
+  // backend's /market/historical/sync-latest + historicalWorker.js). Lets
+  // you click it after market close whenever you like -- today, or after
+  // skipping a few days -- instead of running a script or keeping the
+  // scheduler's exact timing.
+  const handleSyncLatest = async () => {
+    setSyncingLatest(true);
+    setSyncLatestMessage(null);
+    setSyncLatestError(null);
+    try {
+      const data = await marketApi.syncLatest();
+      if (data.success) {
+        setSyncLatestMessage(data.message);
+      } else {
+        setSyncLatestError(data.message || "Unable to queue sync.");
+      }
+    } catch (err) {
+      setSyncLatestError(err.response?.data?.message || err.message || "Unable to queue sync.");
+    } finally {
+      setSyncingLatest(false);
+    }
+  };
+
   const selectFilter = (value) => {
     setFilter(value);
     setSearch("");
@@ -367,9 +394,9 @@ const DashboardPage = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Historical Sync</h3>
-               
+
               </div>
-             
+
             </div>
 
             <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 p-3 mb-3 text-[12px] text-slate-700 dark:text-slate-300 space-y-1">
@@ -382,6 +409,16 @@ const DashboardPage = () => {
                 <span className="font-semibold">{formatDateTime(depthSummary?.last_snapshot)}</span>
               </div>
             </div>
+
+            <button
+              onClick={handleSyncLatest}
+              disabled={syncingLatest}
+              className="w-full rounded-md bg-blue-600 disabled:opacity-40 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-500 mb-2"
+            >
+              {syncingLatest ? "Queuing..." : "Sync latest data now"}
+            </button>
+            {syncLatestMessage && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mb-2">{syncLatestMessage}</p>}
+            {syncLatestError && <p className="text-[11px] text-red-600 dark:text-red-400 mb-2">{syncLatestError}</p>}
 
             <div className="space-y-3 text-[12px] text-slate-700 dark:text-slate-300">
               {historySummary.slice(0, 3).map((item) => (

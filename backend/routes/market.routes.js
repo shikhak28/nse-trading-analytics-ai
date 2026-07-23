@@ -9,6 +9,7 @@ const dailyMoversService = require("../services/dailyMovers.service");
 const authService = require("../services/auth.service");
 const kite = require("../config/kite");
 const { enqueueSymbolSync } = require("../queues");
+const { processDailyEodSync } = require("../jobs/dailyEodSync.job");
 
 /**
  * List stored companies
@@ -26,6 +27,34 @@ router.get("/companies", async (req, res) => {
     } catch (err) {
         console.error("Companies fetch error:", err);
         return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+/**
+ * Manual "catch me up" button -- queues the same day+minute resumable sync
+ * for every tracked company that the 4:30 PM IST daily-eod-sync schedule
+ * normally fires automatically (see historicalWorker.js). For clicking on
+ * demand instead of waiting -- e.g. after skipping a day or several, or
+ * running historicalWorker.js only occasionally rather than as a persistent
+ * background process. Only enqueues; historicalWorker.js must be running to
+ * actually process the queue and pull from Kite.
+ */
+router.post("/historical/sync-latest", async (req, res) => {
+    try {
+        const accessToken = await authService.loadAccessToken();
+        if (!accessToken) {
+            return res.status(401).json({ success: false, message: "Not authenticated with Zerodha" });
+        }
+
+        const result = await processDailyEodSync();
+        return res.json({
+            success: true,
+            enqueued: result.enqueued,
+            message: `Queued ${result.enqueued} companies (day + minute). historicalWorker.js must be running to process them.`,
+        });
+    } catch (err) {
+        console.error("Sync-latest error:", err);
+        return res.status(500).json({ success: false, message: err.message || "Unable to queue sync." });
     }
 });
 
