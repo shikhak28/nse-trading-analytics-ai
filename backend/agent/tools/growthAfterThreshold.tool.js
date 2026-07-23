@@ -6,10 +6,7 @@ function median(values) {
     return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-// Buckets the follow-through move (from the threshold price to the day's
-// close) so a caller can see the shape of the distribution, not just the
-// average -- e.g. "60% growth probability" could hide that most winners
-// only crept up 0.5% while a few ran to 8%.
+
 const BUCKETS = [
     { label: "pulled back below threshold", test: (pct) => pct < 0 },
     { label: "0% to 1% further", test: (pct) => pct >= 0 && pct < 1 },
