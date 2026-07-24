@@ -13,7 +13,19 @@ const formatPercent = (value) =>
 
 const formatDate = (value) => (value ? value.slice(0, 10) : "-");
 
-const formatTime = (value) => (value ? new Date(value).toLocaleTimeString("en-IN") : "-");
+// Explicit timeZone: "Asia/Kolkata" so this always reads as IST regardless
+// of the browser's own local timezone (Kite's tick timestamps are IST).
+const formatTime = (value) =>
+  value
+    ? new Date(value).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "-";
 
 export function CompanyRowHeader() {
   return (
@@ -52,6 +64,8 @@ export function CompanyRow({ index, style, companies, quotes = {}, onRowClick })
   const sellQty = quote?.total_sell_quantity ?? company.total_sell_quantity;
   const upperCircuit = quote?.upper_circuit_limit;
   const lowerCircuit = quote?.lower_circuit_limit;
+  const upperCircuitPercent = quote?.upper_circuit_percent;
+  const lowerCircuitPercent = quote?.lower_circuit_percent;
   const updatedAt = quote?.updated_at;
 
   return (
@@ -80,8 +94,12 @@ export function CompanyRow({ index, style, companies, quotes = {}, onRowClick })
       <span className="text-slate-600 dark:text-slate-300">{formatZero(buyQty)}</span>
       <span className="text-slate-600 dark:text-slate-300">{formatZero(sellQty)}</span>
       <div className="min-w-0">
-        <p className="text-emerald-600 dark:text-emerald-400 text-[11px] truncate">{formatNumber(upperCircuit)}</p>
-        <p className="text-red-600 dark:text-red-400 text-[11px] truncate">{formatNumber(lowerCircuit)}</p>
+        <p className="text-emerald-600 dark:text-emerald-400 text-[11px] truncate">
+          {formatNumber(upperCircuit)} <span className="text-[10px] opacity-80">({formatPercent(upperCircuitPercent)})</span>
+        </p>
+        <p className="text-red-600 dark:text-red-400 text-[11px] truncate">
+          {formatNumber(lowerCircuit)} <span className="text-[10px] opacity-80">({formatPercent(lowerCircuitPercent)})</span>
+        </p>
       </div>
       <span className="text-slate-500 dark:text-slate-400 text-[11px]">{formatTime(updatedAt)}</span>
       <span>
