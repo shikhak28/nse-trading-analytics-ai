@@ -43,7 +43,7 @@ function attach(io) {
 
             await redis.publish(
                 SUBSCRIPTION_CONTROL_CHANNEL,
-                JSON.stringify({ action: "subscribe", symbol, instrumentToken: company.instrument_token })
+                JSON.stringify({ action: "subscribe", symbol, instrumentToken: company.instrument_token, exchange: company.exchange })
             );
 
             const cached = await redis.hgetall(`quote:${symbol}`);

@@ -9,7 +9,10 @@ const labelCls = "text-[10px] uppercase tracking-wide text-slate-500 dark:text-s
 const round2 = (value) => Number(value.toFixed(2));
 const formatNumber = (value) =>
   value === null || value === undefined ? "-" : Number(value).toLocaleString("en-IN");
-const formatDateTime = (value) => (value ? new Date(value).toLocaleString("en-IN") : "-");
+// Explicit timeZone: "Asia/Kolkata" so this always reads as IST regardless
+// of the browser's own local timezone (Kite's tick timestamps are IST).
+const formatDateTime = (value) =>
+  value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-";
 
 /**
  * Row-click popup: live quote + circuit limits + recent daily candles for one
@@ -129,9 +132,15 @@ export function CompanyDetailModal({ company, onClose }) {
           <span className="text-slate-500 dark:text-slate-400">Volume</span>
           <span className="text-right">{formatNumber(quote?.volume ?? company.last_volume)}</span>
           <span className="text-slate-500 dark:text-slate-400">Upper circuit</span>
-          <span className="text-right text-emerald-600 dark:text-emerald-400">{formatNumber(quote?.upper_circuit_limit)}</span>
+          <span className="text-right text-emerald-600 dark:text-emerald-400">
+            {formatNumber(quote?.upper_circuit_limit)}
+            {quote?.upper_circuit_percent != null && ` (+${Number(quote.upper_circuit_percent).toFixed(2)}%)`}
+          </span>
           <span className="text-slate-500 dark:text-slate-400">Lower circuit</span>
-          <span className="text-right text-red-600 dark:text-red-400">{formatNumber(quote?.lower_circuit_limit)}</span>
+          <span className="text-right text-red-600 dark:text-red-400">
+            {formatNumber(quote?.lower_circuit_limit)}
+            {quote?.lower_circuit_percent != null && ` (${Number(quote.lower_circuit_percent).toFixed(2)}%)`}
+          </span>
           <span className="text-slate-500 dark:text-slate-400">Updated</span>
           <span className="text-right">{formatDateTime(quote?.updated_at)}</span>
         </div>
