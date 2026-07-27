@@ -55,7 +55,8 @@ async function main() {
     for (const { exchange, symbol } of uniqueSymbols.values()) {
         const kiteMatch = dumpByExchange[exchange].get(symbol);
         if (!kiteMatch) {
-            notFound.push(`${exchange}:${symbol}`);
+            const closeMatches = [...dumpByExchange[exchange].keys()].filter((k) => k.includes(symbol) || symbol.includes(k));
+            notFound.push(`${exchange}:${symbol}${closeMatches.length ? ` (close matches in dump: ${closeMatches.join(", ")})` : " (no close matches at all)"}`);
             continue;
         }
 
