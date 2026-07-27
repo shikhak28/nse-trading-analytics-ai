@@ -32,7 +32,11 @@ async function main() {
     for (const exchange of exchanges) {
         console.log(`Fetching current Kite instrument dump for ${exchange}...`);
         const instruments = await kite.getInstruments(exchange);
-        dumpByExchange[exchange] = new Map(instruments.map((i) => [i.tradingsymbol.toUpperCase(), i]));
+        dumpByExchange[exchange] = new Map(
+            instruments
+                .filter((i) => typeof i.tradingsymbol === "string" && i.tradingsymbol.length > 0)
+                .map((i) => [i.tradingsymbol.toUpperCase(), i])
+        );
     }
 
     const uniqueSymbols = new Map(); // "EXCHANGE:SYMBOL" -> {exchange, symbol}
