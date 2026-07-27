@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authApi } from "../../api/authApi";
 
 const ConnectZerodha = ({ onConnected }) => {
     const [status, setStatus] = useState({ connected: false, loading: true, message: "Checking connection..." });
@@ -16,8 +17,7 @@ const ConnectZerodha = ({ onConnected }) => {
         }
 
         try {
-            const response = await fetch("http://localhost:5000/auth/status");
-            const data = await response.json();
+            const data = await authApi.checkStatus();
 
             if (data.connected) {
                 localStorage.setItem("zerodha_connected", "true");
@@ -62,7 +62,7 @@ const ConnectZerodha = ({ onConnected }) => {
     }, [onConnected]);
 
     const handleConnect = () => {
-        window.location.href = "http://localhost:5000/auth/login";
+        authApi.connect();
     };
 
     return (

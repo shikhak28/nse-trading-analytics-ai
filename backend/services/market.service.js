@@ -270,11 +270,21 @@ async function getCompaniesBySymbols(symbols, exchange = "NSE") {
   return result.rows;
 }
 
+/**
+ * Drops a company (and, via ON DELETE CASCADE, its stored historical_prices)
+ * -- used when a requested symbol turns out not to exist on Zerodha anymore
+ * (e.g. delisted), so a stale/incorrect row doesn't linger in `companies`.
+ */
+async function removeCompany(symbol, exchange = "NSE") {
+  await db.query(`DELETE FROM companies WHERE exchange = $1 AND symbol = $2`, [exchange.toUpperCase(), symbol.toUpperCase()]);
+}
+
 module.exports = {
   upsertCompanies,
   saveHistoricalPrices,
   getCompanies,
   getCompaniesBySymbols,
+  removeCompany,
   getStoredHistoricalPrices,
   getStoredHistoricalSummary,
   getLastCandleTimestamp,
