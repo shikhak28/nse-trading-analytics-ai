@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const client = axios.create({ baseURL: "http://localhost:5000" });
+// baseURL is relative -- rides the Vite dev proxy (see vite.config.js) so
+// the browser sees these calls as same-origin, letting the session cookie
+// flow without needing cross-site cookie settings. withCredentials sends it.
+const client = axios.create({ baseURL: "", withCredentials: true });
 
 export const marketApi = {
   getMarkets: async () => {

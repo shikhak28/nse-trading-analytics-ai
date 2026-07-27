@@ -31,14 +31,11 @@ export function SyncSymbolPanel() {
     setError(null);
     setResult(null);
     try {
-      const [dayResult, minuteResult] = await Promise.all([
-        marketApi.syncHistorical(trimmed, "day", exchange),
-        marketApi.syncHistorical(trimmed, "minute", exchange),
-      ]);
-      if (dayResult.success && minuteResult.success) {
-        setResult(`Queued ${trimmed} (${exchange}) -- day + minute candles syncing in the background.`);
+      const data = await marketApi.syncHistorical(trimmed, "minute", exchange);
+      if (data.success) {
+        setResult(`Queued ${trimmed} (${exchange}) -- 1-minute candles syncing in the background.`);
       } else {
-        setError(dayResult.message || minuteResult.message || "Unable to queue sync.");
+        setError(data.message || "Unable to queue sync.");
       }
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to queue sync.");
@@ -50,17 +47,17 @@ export function SyncSymbolPanel() {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm h-full flex flex-col">
       <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-1">
-        Sync a symbol (3yr backfill)
+        Pull historical data for a symbol
       </h3>
       <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-        For symbols missing from the dashboard (e.g. newly listed). Depth has no historical API -- capture starts after depthWorker.js next restarts.
+        Enter a ticker (e.g. IVP). We check it exists on NSE/Zerodha, then queue a 1-minute-candle backfill for just that company -- nothing else is touched.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={symbol}
           onChange={(event) => setSymbol(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && handleSync()}
-          placeholder="Symbol e.g. MTARTECH"
+          placeholder="Symbol e.g. IVP"
           className={`${inputCls} flex-1 min-w-[180px]`}
         />
         <select value={exchange} onChange={(event) => setExchange(event.target.value)} className={`${inputCls} w-24`}>
@@ -72,7 +69,7 @@ export function SyncSymbolPanel() {
           disabled={syncing || !symbol.trim()}
           className="rounded-md bg-blue-600 disabled:opacity-40 px-4 py-2 text-[12px] font-semibold text-white hover:bg-blue-500 whitespace-nowrap"
         >
-          {syncing ? "Queuing..." : "Sync 3yr history"}
+          {syncing ? "Checking..." : "Pull 1-min history"}
         </button>
       </div>
       {result && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">{result}</p>}
