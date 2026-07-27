@@ -101,3 +101,86 @@ docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
 # 2388 companies and 3 years -- exporting the whole table as one CSV
 # would be 10+ GB and impractical to open. Filter by symbol/exchange/date
 # range instead (swap the WHERE clause above).
+
+
+
+PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\queueStatus.js 20
+◇ injected env (13) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+Job counts: {
+  waiting: 1367,
+  active: 1,
+  delayed: 0,
+  completed: 200,
+  failed: 44,
+  paused: 0
+}
+
+-- waiting (showing up to 20) --
+sync:NSE-ZYDUSWELL:minute (NSE:ZYDUSWELL, minute)
+sync:NSE-ZYDUSWELL:day (NSE:ZYDUSWELL, day)
+sync:NSE-ZYDUSLIFE:minute (NSE:ZYDUSLIFE, minute)
+sync:NSE-ZYDUSLIFE:day (NSE:ZYDUSLIFE, day)
+sync:NSE-ZUARIIND:minute (NSE:ZUARIIND, minute)
+sync:NSE-ZUARIIND:day (NSE:ZUARIIND, day)
+sync:NSE-ZUARI:minute (NSE:ZUARI, minute)
+sync:NSE-ZUARI:day (NSE:ZUARI, day)
+sync:NSE-ZSARACOM:minute (NSE:ZSARACOM, minute)
+sync:NSE-ZSARACOM:day (NSE:ZSARACOM, day)
+sync:NSE-ZOTA:minute (NSE:ZOTA, minute)
+sync:NSE-ZOTA:day (NSE:ZOTA, day)
+sync:NSE-ZODIACLOTH:minute (NSE:ZODIACLOTH, minute)
+sync:NSE-ZODIACLOTH:day (NSE:ZODIACLOTH, day)
+sync:NSE-ZFSTEERING:minute (NSE:ZFSTEERING, minute)
+sync:NSE-ZFSTEERING:day (NSE:ZFSTEERING, day)
+sync:NSE-ZFCVINDIA:minute (NSE:ZFCVINDIA, minute)
+sync:NSE-ZFCVINDIA:day (NSE:ZFCVINDIA, day)
+sync:NSE-ZENTEC:minute (NSE:ZENTEC, minute)
+sync:NSE-ZENTEC:day (NSE:ZENTEC, day)
+
+-- active (showing up to 20) --
+sync:NSE-PVTBANK:minute (NSE:PVTBANK, minute)
+
+-- completed (showing up to 20) --
+sync:NSE-QUADFUTURE:day (NSE:QUADFUTURE, day)
+sync:NSE-QNIFTY:minute (NSE:QNIFTY, minute)
+sync:NSE-QNIFTY:day (NSE:QNIFTY, day)
+sync:NSE-QMSMEDI:minute (NSE:QMSMEDI, minute)
+sync:NSE-QMSMEDI:day (NSE:QMSMEDI, day)
+sync:NSE-QGOLDHALF:minute (NSE:QGOLDHALF, minute)
+sync:NSE-QGOLDHALF:day (NSE:QGOLDHALF, day)
+sync:NSE-PYRAMID:minute (NSE:PYRAMID, minute)
+sync:NSE-PYRAMID:day (NSE:PYRAMID, day)
+sync:NSE-PWL:minute (NSE:PWL, minute)
+sync:NSE-PWL:day (NSE:PWL, day)
+sync:NSE-PVTBKGROWW:minute (NSE:PVTBKGROWW, minute)
+sync:NSE-PVTBKGROWW:day (NSE:PVTBKGROWW, day)
+sync:NSE-PVTBANKADD:minute (NSE:PVTBANKADD, minute)
+sync:NSE-PVTBANKADD:day (NSE:PVTBANKADD, day)
+sync:NSE-PVTBANK:day (NSE:PVTBANK, day)
+sync:NSE-PVTBANIETF:minute (NSE:PVTBANIETF, minute)
+sync:NSE-PVTBANIETF:day (NSE:PVTBANIETF, day)
+sync:NSE-PVSL:minute (NSE:PVSL, minute)
+sync:NSE-PVSL:day (NSE:PVSL, day)
+
+-- failed (showing up to 20) --
+sync:NSE-PPAP:minute (NSE:PPAP, minute) -- invalid token
+sync:NSE-PPAP:day (NSE:PPAP, day) -- invalid token
+sync:NSE-PANACHE:minute (NSE:PANACHE, minute) -- invalid token
+sync:NSE-PANACHE:day (NSE:PANACHE, day) -- invalid token
+sync:NSE-ONMOBILE:minute (NSE:ONMOBILE, minute) -- invalid token
+sync:NSE-ONMOBILE:day (NSE:ONMOBILE, day) -- invalid token
+sync:NSE-MTARTECH:minute (NSE:MTARTECH, minute) -- invalid token
+sync:NSE-MTARTECH:day (NSE:MTARTECH, day) -- invalid token
+sync:NSE-MAZDA:minute (NSE:MAZDA, minute) -- invalid token
+sync:NSE-MAZDA:day (NSE:MAZDA, day) -- invalid token
+sync:NSE-KAUSHALYA:minute (NSE:KAUSHALYA, minute) -- invalid token
+sync:NSE-KAUSHALYA:day (NSE:KAUSHALYA, day) -- invalid token
+sync:NSE-JBCHEPHARM:day (NSE:JBCHEPHARM, day) -- invalid token
+sync:NSE-JBCHEPHARM:minute (NSE:JBCHEPHARM, minute) -- invalid token
+sync:NSE-IVP:minute (NSE:IVP, minute) -- invalid token
+sync:NSE-IVP:day (NSE:IVP, day) -- invalid token
+sync:NSE-INVPRECQ:day (NSE:INVPRECQ, day) -- invalid token
+sync:NSE-INVPRECQ:minute (NSE:INVPRECQ, minute) -- invalid token
+sync:NSE-HEXAGON:minute (NSE:HEXAGON, minute) -- invalid token
+sync:NSE-HEXAGON:day (NSE:HEXAGON, day) -- invalid token
+PS C:\Users\vivek\nse-trading-analytics-ai> 
