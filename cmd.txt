@@ -242,27 +242,60 @@ PostgreSQL connected
 PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> 
 
 
-PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\backfillMinuteHistory.js minute   
-◇ injected env (13) from ..\..\.env // tip: ◈ secrets for agents [www.dotenvx.com]
-PostgreSQL connected
-[backfill-minute-history] enqueued 0 symbols for minute-interval sync (MINUTE only)
-PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> 
-
-[historical-sync] completed: sync-symbol (sync:NSE-SINCLAIR:day)
-[historical-sync] NSE:SINCLAIR (minute): 73 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SINCLAIR:minute)
-[historical-sync] NSE:SIMPLEXINF (minute): 125 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SIMPLEXINF:minute)
-[historical-sync] completed: sync-symbol (sync:NSE-SINDHUTRAD:day)
-[historical-sync] completed: sync-symbol (sync:NSE-SINGERIND:day)
-[historical-sync] NSE:SINDHUTRAD (minute): 160 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SINDHUTRAD:minute)
-[historical-sync] completed: sync-symbol (sync:NSE-SINTERCOM:day)
-[historical-sync] NSE:SINTERCOM (minute): 53 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SINTERCOM:minute)
-[historical-sync] NSE:SINGERIND (minute): 106 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SINGERIND:minute)
-[historical-sync] completed: sync-symbol (sync:NSE-SIRCA:day)
-[historical-sync] completed: sync-symbol (sync:NSE-SIS:day)
-[historical-sync] NSE:SIRCA (minute): 177 candles synced
-[historical-sync] completed: sync-symbol (sync:NSE-SIRCA:minute)
+ failed (showing up to 100) --
+sync:NSE-VIPULLTD:minute (NSE:VIPULLTD, minute) -- invalid token
+sync:NSE-VIPULLTD:day (NSE:VIPULLTD, day) -- invalid token
+sync:NSE-TRIVENI:minute (NSE:TRIVENI, minute) -- invalid token
+sync:NSE-TRIVENI:day (NSE:TRIVENI, day) -- invalid token
+sync:NSE-TIRUPATIFL:minute (NSE:TIRUPATIFL, minute) -- invalid token
+sync:NSE-TIRUPATIFL:day (NSE:TIRUPATIFL, day) -- invalid token
+sync:NSE-TICL:minute (NSE:TICL, minute) -- invalid token
+sync:NSE-TICL:day (NSE:TICL, day) -- invalid token
+sync:NSE-SIGMAADV:minute (NSE:SIGMAADV, minute) -- invalid token
+sync:NSE-SIGMAADV:day (NSE:SIGMAADV, day) -- invalid token
+sync:NSE-SHARDUL:minute (NSE:SHARDUL, minute) -- invalid token
+sync:NSE-SHARDUL:day (NSE:SHARDUL, day) -- invalid token
+sync:NSE-PPAP:minute (NSE:PPAP, minute) -- invalid token
+sync:NSE-PPAP:day (NSE:PPAP, day) -- invalid token
+sync:NSE-PANACHE:minute (NSE:PANACHE, minute) -- invalid token
+sync:NSE-PANACHE:day (NSE:PANACHE, day) -- invalid token
+sync:NSE-ONMOBILE:minute (NSE:ONMOBILE, minute) -- invalid token
+sync:NSE-ONMOBILE:day (NSE:ONMOBILE, day) -- invalid token
+sync:NSE-MTARTECH:minute (NSE:MTARTECH, minute) -- invalid token
+sync:NSE-MTARTECH:day (NSE:MTARTECH, day) -- invalid token
+sync:NSE-MAZDA:minute (NSE:MAZDA, minute) -- invalid token
+sync:NSE-MAZDA:day (NSE:MAZDA, day) -- invalid token
+sync:NSE-KAUSHALYA:minute (NSE:KAUSHALYA, minute) -- invalid token
+sync:NSE-KAUSHALYA:day (NSE:KAUSHALYA, day) -- invalid token
+sync:NSE-JBCHEPHARM:day (NSE:JBCHEPHARM, day) -- invalid token
+sync:NSE-JBCHEPHARM:minute (NSE:JBCHEPHARM, minute) -- invalid token
+sync:NSE-IVP:minute (NSE:IVP, minute) -- invalid token
+sync:NSE-IVP:day (NSE:IVP, day) -- invalid token
+sync:NSE-INVPRECQ:day (NSE:INVPRECQ, day) -- invalid token
+sync:NSE-INVPRECQ:minute (NSE:INVPRECQ, minute) -- invalid token
+sync:NSE-HEXAGON:minute (NSE:HEXAGON, minute) -- invalid token
+sync:NSE-HEXAGON:day (NSE:HEXAGON, day) -- invalid token
+sync:NSE-GRADIENTE:day (NSE:GRADIENTE, day) -- invalid token
+sync:NSE-GRADIENTE:minute (NSE:GRADIENTE, minute) -- invalid token
+sync:NSE-GINNIFILA:minute (NSE:GINNIFILA, minute) -- invalid token
+sync:NSE-GINNIFILA:day (NSE:GINNIFILA, day) -- invalid token
+sync:NSE-GANGAFORGE:minute (NSE:GANGAFORGE, minute) -- invalid token
+sync:NSE-GANGAFORGE:day (NSE:GANGAFORGE, day) -- invalid token
+sync:NSE-EMAMIPAP:minute (NSE:EMAMIPAP, minute) -- invalid token
+sync:NSE-EMAMIPAP:day (NSE:EMAMIPAP, day) -- invalid token
+sync:NSE-DBSTOCKBRO:minute (NSE:DBSTOCKBRO, minute) -- invalid token
+sync:NSE-DBSTOCKBRO:day (NSE:DBSTOCKBRO, day) -- invalid token
+sync:NSE-DAMODARIND:minute (NSE:DAMODARIND, minute) -- invalid token
+sync:NSE-DAMODARIND:day (NSE:DAMODARIND, day) -- invalid token
+sync:NSE-CONSOFINVT:minute (NSE:CONSOFINVT, minute) -- invalid token
+sync:NSE-CONSOFINVT:day (NSE:CONSOFINVT, day) -- invalid token
+sync:NSE-BTTL:minute (NSE:BTTL, minute) -- invalid token
+sync:NSE-BTTL:day (NSE:BTTL, day) -- invalid token
+sync:NSE-BNALTD:minute (NSE:BNALTD, minute) -- invalid token
+sync:NSE-BNALTD:day (NSE:BNALTD, day) -- invalid token
+sync:NSE-BHARATGEAR:minute (NSE:BHARATGEAR, minute) -- invalid token
+sync:NSE-BHARATGEAR:day (NSE:BHARATGEAR, day) -- invalid token
+sync:NSE-AURIGROW:day (NSE:AURIGROW, day) -- invalid token
+sync:NSE-AURIGROW:minute (NSE:AURIGROW, minute) -- invalid token
+sync:NSE-AARTECH:minute (NSE:AARTECH, minute) -- invalid token
+sync:NSE-AARTECH:day (NSE:AARTECH, day) -- invalid token
