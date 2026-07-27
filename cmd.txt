@@ -104,7 +104,7 @@ docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
 
 
 PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js
-◇ injected env (13) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (13) from .env // tip: ⌘ enable debugging { debug: true }
 PostgreSQL connected
 Found 56 failed jobs.
 Fetching current Kite instrument dump for NSE...
@@ -115,36 +115,36 @@ Fetching current Kite instrument dump for NSE...
 Fixed instrument_token for 0 symbols:
 
 NOT FOUND in current Kite dump (likely delisted/renamed) -- 28 symbols, will NOT retry:
-  NSE:VIPULLTD
-  NSE:TRIVENI
-  NSE:TIRUPATIFL
-  NSE:TICL
-  NSE:SIGMAADV
-  NSE:SHARDUL
-  NSE:PPAP
-  NSE:PANACHE
-  NSE:ONMOBILE
-  NSE:MTARTECH
-  NSE:MAZDA
-  NSE:KAUSHALYA
-  NSE:JBCHEPHARM
-  NSE:IVP
-  NSE:INVPRECQ
-  NSE:HEXAGON
-  NSE:GRADIENTE
-  NSE:GINNIFILA
-  NSE:GANGAFORGE
-  NSE:EMAMIPAP
-  NSE:DBSTOCKBRO
-  NSE:DAMODARIND
-  NSE:CONSOFINVT
-  NSE:BTTL
-  NSE:BNALTD
-  NSE:BHARATGEAR
-  NSE:AURIGROW
-  NSE:AARTECH
+  NSE:VIPULLTD (close matches in dump: VIPULLTD-BE, LT)
+  NSE:TRIVENI (close matches in dump: TRIVENI-BE)
+  NSE:TIRUPATIFL (close matches in dump: TI, TIRUPATIFL-BE, RUPA)
+  NSE:TICL (close matches in dump: TI, TICL-BE)
+  NSE:SIGMAADV (close matches in dump: SIGMAADV-BE, SIGMA)
+  NSE:SHARDUL (close matches in dump: SHARDUL-BE)
+  NSE:PPAP (close matches in dump: PPAP-BE)
+  NSE:PANACHE (close matches in dump: PANACHE-BE)
+  NSE:ONMOBILE (close matches in dump: BIL, ONMOBILE-BE, BI)
+  NSE:MTARTECH (close matches in dump: MTARTECH-BE, TECH)
+  NSE:MAZDA (close matches in dump: MAZDA-BE)
+  NSE:KAUSHALYA (close matches in dump: HAL, KAUSHALYA-BE)
+  NSE:JBCHEPHARM (no close matches at all)
+  NSE:IVP (close matches in dump: IVP-BE, UNIVPHOTO-BE)
+  NSE:INVPRECQ (close matches in dump: INVPRECQ-BE)
+  NSE:HEXAGON (close matches in dump: HEXAGON-BE)
+  NSE:GRADIENTE (close matches in dump: GRADIENTE-BE)
+  NSE:GINNIFILA (close matches in dump: GINNIFILA-BE)
+  NSE:GANGAFORGE (close matches in dump: GANGAFORGE-BE)
+  NSE:EMAMIPAP (close matches in dump: EMAMIPAP-BE)
+  NSE:DBSTOCKBRO (close matches in dump: DBSTOCKBRO-BE)
+  NSE:DAMODARIND (close matches in dump: DAMODARIND-BE)
+  NSE:CONSOFINVT (close matches in dump: CONS, CONSOFINVT-BE)
+  NSE:BTTL (close matches in dump: TTL, BTTL-BE)
+  NSE:BNALTD (close matches in dump: LT, BNALTD-BE)
+  NSE:BHARATGEAR (close matches in dump: BHARATGEAR-BE)
+  NSE:AURIGROW (no close matches at all)
+  NSE:AARTECH (close matches in dump: TECH, AARTECH-BE)
 
 Token already correct (failure was something else) -- 0 symbols:
 
-Retried 0 jobs. Make sure historicalWorker.js is running to process them.
+Retried 56 jobs. Make sure historicalWorker.js is running to process them.
 PS C:\Users\vivek\nse-trading-analytics-ai> 
