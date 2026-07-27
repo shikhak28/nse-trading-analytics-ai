@@ -140,7 +140,13 @@ async function getCompanies({ search, exchange, limit = 5000, offset = 0 } = {})
            hp.low AS last_low,
            hp.close AS last_close,
            hp.volume AS last_volume,
-           hp.candle_timestamp AS last_candle_at
+           hp.candle_timestamp AS last_candle_at,
+           NOT EXISTS (
+             SELECT 1 FROM historical_prices h
+             WHERE h.exchange = c.exchange
+               AND h.symbol = c.symbol
+               AND h.interval = 'day'
+           ) AS missing_history
     FROM companies c
     LEFT JOIN LATERAL (
       SELECT open, high, low, close, volume, candle_timestamp
