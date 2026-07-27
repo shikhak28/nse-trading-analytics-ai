@@ -1,0 +1,245 @@
+RESEARCH PROGRESS REPORT
+Satellite Imagery -> PV (Solar Power) Prediction: Baseline Validation Phase
+============================================================================
+
+
+1. RESEARCH CONTEXT
+--------------------
+The overall research plan has four phases:
+
+  Phase 1: Find the relationship/pattern between satellite images, ground-based
+           sky camera images, and PV (photovoltaic/solar panel) power output.
+  Phase 2: Add historical weather data + Numerical Weather Prediction (NWP) data.
+  Phase 3: Apply Explainable AI (XAI) to interpret what the model has learned.
+  Phase 4: Build a multimodal transformer that fuses all data sources to
+           forecast PV generation.
+
+This report covers the work done to complete Phase 1 up to a validated
+"baseline" model -- i.e., before investing time in a complex deep learning
+model (the eventual transformer), we first proved with a simple, interpretable
+model that satellite images actually contain useful information about solar
+power output. This is standard research practice: build the simplest
+possible model first, confirm the signal is real, THEN justify the cost of
+a more complex model.
+
+
+2. DATA SOURCES USED
+---------------------
+  a) SKIPD dataset (already provided, stored as an HDF5 file):
+     - Ground-based sky camera images
+     - PV (solar panel) power output readings
+     - Timestamps for each reading, covering 2017-2019
+
+  b) GOES-17 satellite data (NOAA's geostationary weather satellite):
+     - Publicly available on Amazon AWS (NOAA Open Data program)
+     - We used 4 specific spectral bands, chosen for physical relevance:
+         Band 2  (visible light / reflectance -- like a camera)
+         Band 3  (near-infrared -- helps distinguish cloud vs. land/vegetation)
+         Band 5  (short-wave infrared -- helps distinguish cloud vs. snow/ice)
+         Band 13 (thermal infrared -- measures cloud-top temperature, works
+                  day and night)
+     - We did NOT download all 16 available bands, because the file size per
+       day would have been ~40-70 GB, which is impractical to work with.
+       Using only 4 physically-relevant bands cut the data volume by roughly
+       4x with no loss of the signal we actually need.
+
+
+3. STEP-BY-STEP: WHAT WE DID AND WHY
+--------------------------------------
+
+STEP 1 -- Exploratory Data Analysis (EDA) on the SKIPD dataset
+  What: Loaded the PV output time series and sky-camera images, plotted daily
+        and hourly average PV output, and visually compared sky images taken
+        during low-PV and high-PV moments.
+  Why:  Before touching satellite data, we needed to understand the target
+        variable itself -- when PV is high/low, what does the daily/seasonal
+        pattern look like, and does a low-PV image visually look cloudier
+        than a high-PV image (a basic sanity check).
+
+STEP 2 -- Matching satellite scans to PV timestamps (single day pilot)
+  What: Downloaded one day (Aug 10, 2019) of GOES-17 imagery and matched each
+        PV/sky-camera timestamp to the nearest-in-time satellite scan
+        (satellite scans arrive every ~5 minutes; average matching error was
+        about 74 seconds, well within tolerance).
+  Why:  This is a pilot test on a small, manageable amount of data to prove
+        the matching logic works correctly before scaling it up to many days.
+
+STEP 3 -- Data quality investigation (an important detour)
+  What: On the pilot day, some midday satellite images looked unexpectedly
+        dark/noisy even though the sun should have been strong. We
+        investigated using three independent checks:
+          1. The satellite's own Data Quality Flag (DQF) -- confirmed the
+             pixels were flagged as good-quality data, not corrupted.
+          2. The raw reflectance values -- confirmed they were genuinely
+             very low (not a display/plotting artifact).
+          3. The infrared (thermal) band -- confirmed the temperature at
+             that location was also colder than a clear day, independently
+             corroborating "something is blocking sunlight."
+  Why:  This ruled out a software bug or corrupted file, and confirmed the
+        anomaly was a real physical event (thick cloud/haze/aerosol). This
+        step matters because it built confidence that our satellite data
+        pipeline reflects reality, not glitches -- important before trusting
+        any model trained on this data.
+
+STEP 4 -- Building a reusable feature-extraction function
+  What: Wrote a function that, for any matched satellite scan, extracts a
+        small patch of pixels centered on the study site (Stanford, CA) and
+        computes: mean, standard deviation, and % of good-quality pixels for
+        each of the 4 bands. Reflective bands (2, 3, 5) were normalized by
+        the sun's angle in the sky (solar zenith angle, computed with the
+        pvlib library) because raw brightness is misleading near sunrise/
+        sunset -- the same cloud looks "darker" simply because the sun is
+        low, not because it's more cloudy.
+  Why:  Turns raw satellite images into a small number of interpretable
+        numbers (features) that a simple statistical model can use, and
+        removes a known confound (sun angle) before modeling.
+
+STEP 5 -- Scaling beyond one day
+  What: One full day of raw satellite data (all scans, all bands) would be
+        tens of gigabytes -- not feasible to download repeatedly. We solved
+        this by:
+          a) Selecting a STRATIFIED sample of days across the year (not
+             every day) -- for each month, one "clear-sky-like" day and one
+             "cloudy-like" day, based on how much the PV output varied that
+             day. This ensures the sample represents both weather regimes,
+             not just sunny days.
+          b) Listing available satellite files on Amazon S3 without
+             downloading them first (metadata only), then downloading ONLY
+             the specific files needed to match our PV timestamps at a
+             15-minute interval (instead of every 5-minute scan).
+          c) Switching from the "all-bands-in-one-file" satellite product to
+             a "one-band-per-file" product, so we only download the 4 bands
+             we actually use, not all 16.
+          d) Processing one day at a time and deleting the raw satellite
+             files immediately after extracting features, so disk usage
+             never accumulates.
+  Why:  This is a data-engineering decision that makes the difference between
+        "impossible to run on Google Colab" and "runs in well under an hour."
+        Selective, metadata-first downloading cut the required data volume
+        by roughly 85-90% compared to downloading everything.
+  Result: 16 days processed, ~1.5-2 GB per day (vs. tens of GB if done
+          naively), safely within Colab's storage limits.
+
+STEP 6 -- Defining a fair prediction target (clear-sky index)
+  What: Instead of predicting raw PV output directly, we computed a
+        "clear-sky index" (kt = actual PV / expected PV under clear-sky
+        conditions for that time of day and month). The clear-sky reference
+        was estimated empirically from the historical data (95th percentile
+        PV output for each month-hour combination), since we did not have
+        the solar panel's exact technical specifications needed for a
+        physics-based clear-sky model.
+  Why:  This is a critical and easy-to-overlook methodological point. Raw PV
+        output is overwhelmingly driven by simple solar geometry (time of
+        day, season) -- a model could achieve deceptively high accuracy
+        just by learning "it's noon in July" without looking at a single
+        cloud. By predicting the clear-sky index instead, we isolate the
+        variation caused by clouds/atmosphere -- exactly the signal the
+        satellite images should explain. This ensures our model's accuracy
+        reflects genuine image understanding, not a trivial shortcut.
+
+STEP 7 -- Fair train/test split
+  What: Split the data by whole DAYS (not individual rows) into training and
+        test sets.
+  Why:  PV readings taken minutes apart are highly correlated. A random
+        row-by-row split would leak information between training and test
+        sets (the model could "cheat" by seeing a nearly-identical reading
+        from the same day in training). Splitting by day prevents this.
+
+STEP 8 -- Three-tier baseline model comparison
+  What: We trained and compared four models predicting the clear-sky index:
+          A) Persistence: naive guess = the value 15 minutes ago
+          B) Geometry-only: solar angle, hour, month (no image data at all)
+          C) Geometry + satellite image features
+          D) Persistence + geometry + satellite image features (combined)
+        Model type: LightGBM (a gradient-boosted decision tree), chosen
+        because it is fast, works well on small tabular datasets, and its
+        feature importances are directly interpretable -- appropriate for a
+        baseline/sanity-check model, as opposed to a deep neural network.
+  Why:  A single model's accuracy number means little in isolation. Comparing
+        against a naive baseline (persistence) and an image-free baseline
+        (geometry-only) tells us whether the satellite images are adding
+        real, incremental value -- which is the entire question Phase 1 is
+        trying to answer.
+  Results (RMSE, lower is better; n = 16 days, 3 held-out test days):
+          A) Persistence:               RMSE = 0.364
+          B) Geometry-only:              RMSE = 0.623
+          C) Geometry + Image:           RMSE = 0.442  (29% better than B)
+          D) Persistence + Geom + Image: RMSE = 0.312  (14% better than A)
+  Interpretation: Model C clearly outperforms Model B, proving satellite
+        image features contain real predictive information beyond simple
+        solar geometry. Model D, which combines persistence with image
+        features, outperforms persistence alone -- meaning the satellite
+        data adds value even on top of the strongest naive baseline. This
+        result matches expectations from published solar-nowcasting
+        literature, where persistence is known to be a very strong
+        short-horizon baseline that is hard to beat, but can be improved
+        by adding cloud information.
+
+STEP 9 -- Feature importance sanity check
+  What: Examined which features the best model actually relied on most.
+  Result: The top features were:
+          - Band 13 mean (infrared cloud-top temperature)
+          - Band 13 std-dev (temperature variability / cloud texture)
+          - Band 2 std-dev (visible-light texture, indicates cloud edges)
+          - Solar zenith angle
+        The "valid pixel fraction" quality-control features had zero
+        importance, which is itself a good sign -- it means all patches used
+        had clean data, so this control feature correctly contributed
+        nothing (as expected, not a bug).
+  Why:  This is physically sensible: colder cloud-top temperature and more
+        textured/patchy cloud cover are well-known indicators of reduced
+        solar irradiance in atmospheric science. The fact that the model
+        independently "discovered" these same physically meaningful features
+        -- without being told to -- is strong evidence that it is learning
+        real atmospheric structure, not fitting noise or artifacts.
+
+
+4. WHY THIS MATTERS / WHAT THIS PROVES
+----------------------------------------
+Before this baseline phase, it was an open question whether the relationship
+between satellite cloud imagery and ground PV output was strong enough, and
+extractable enough with simple features, to justify building a much more
+expensive deep learning model (Phase 4's transformer). This baseline phase
+provides evidence, on real data, that:
+
+  1. The data pipeline (satellite download, time-matching, feature
+     extraction) works correctly end-to-end.
+  2. Satellite image features carry genuine, physically-explainable
+     predictive signal about PV output -- confirmed two independent ways
+     (accuracy improvement AND sensible feature importance).
+  3. This signal survives a rigorous evaluation design (day-level train/test
+     split, comparison against strong naive baselines, a target variable
+     that removes the trivial solar-geometry shortcut).
+
+This justifies moving forward to more complex modeling (deep learning /
+transformer fusion), because we now have concrete, interpretable evidence
+that there is a real signal to learn from -- rather than assuming it and
+finding out only after a large investment of time in a black-box model.
+
+
+5. CURRENT LIMITATION AND IMMEDIATE NEXT STEP
+------------------------------------------------
+The above results are based on only 16 days of data (13 for training, 3 for
+testing), which was a deliberate, resource-conscious choice for this
+validation phase -- not a data availability limit. The small test set (3
+days) makes the exact numbers somewhat noisy, though the direction of the
+result (image features help) is consistent with what atmospheric physics
+would predict.
+
+Next step: scale the exact same pipeline to a larger stratified sample
+(approximately 40 days across all seasons and cloud conditions) to confirm
+the result holds with a less noisy evaluation, before moving to Phase 2
+(incorporating historical weather and Numerical Weather Prediction data).
+
+
+6. TOOLS AND METHODS USED (for reference)
+--------------------------------------------
+  - Python, pandas, numpy, xarray (satellite data handling)
+  - h5py (reading the SKIPD ground-truth dataset)
+  - pvlib (solar position calculations)
+  - s3fs (efficient, selective access to NOAA's public satellite archive
+    on Amazon S3)
+  - LightGBM (gradient boosting model for the baseline)
+  - Google Colab (execution environment)
+  - Data source: NOAA GOES-17 satellite, ABI-L2-CMIPC product (AWS Open
+    Data / NOAA Open Data Dissemination program, public and free)

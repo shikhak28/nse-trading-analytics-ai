@@ -240,46 +240,101 @@ router.post("/historical/sync", async (req, res) => {
 
         const symbolList = symbols.split(",").map((item) => item.trim().toUpperCase()).filter(Boolean);
 
-        // Make sure every requested symbol has a companies row (with an
-        // instrument_token) before queuing -- the worker looks it up there
-        // rather than re-fetching Kite's full instrument dump per symbol.
-        const existing = await marketService.getCompaniesBySymbols(symbolList, exchange);
-        const knownSymbols = new Set(existing.map((company) => company.symbol));
-        const missingSymbols = symbolList.filter((symbol) => !knownSymbols.has(symbol));
+        // Always re-verify every requested symbol against Kite's current
+        // instrument dump -- not just the ones missing from `companies` --
+        // so a symbol that's been delisted (removed from Zerodha since it
+        // was last synced) gets caught and cleaned up too, not just brand-new
+        // unknown ones.
+        const instruments = await kite.getInstruments(exchange);
+        const equityInstruments = Array.isArray(instruments)
+            ? instruments.filter((instrument) => instrument.instrument_type === "EQ")
+            : [];
 
-        if (missingSymbols.length > 0) {
-            const instruments = await kite.getInstruments(exchange);
-            const instrumentMap = Array.isArray(instruments)
-                ? instruments.reduce((map, instrument) => {
-                      const symbolKey = (instrument.tradingsymbol || instrument.trading_symbol || "").toUpperCase();
-                      map[symbolKey] = instrument;
-                      return map;
-                  }, {})
-                : {};
+        // Exact tradingsymbol match (the common case).
+        const exactMap = new Map(
+            equityInstruments.map((instrument) => [(instrument.tradingsymbol || "").toUpperCase(), instrument])
+        );
 
-            const companiesToUpsert = missingSymbols.map((symbol) => {
-                const instrument = instrumentMap[symbol];
+        // Many NSE equities trade under a settlement-series suffix (e.g. IVP
+        // is actually listed as "IVP-BE", trade-to-trade series) -- a user
+        // typing the plain company ticker shouldn't get a false "not found"
+        // (or worse, an existing valid row wrongly deleted) just because
+        // they didn't include that suffix. Falls back to matching the part
+        // before the first hyphen when there's no exact match.
+        const baseMap = new Map();
+        for (const instrument of equityInstruments) {
+            const tradingsymbol = (instrument.tradingsymbol || "").toUpperCase();
+            const base = tradingsymbol.split("-")[0];
+            if (base && !baseMap.has(base)) {
+                baseMap.set(base, instrument);
+            }
+        }
+
+        const resolved = new Map(); // requested symbol -> matched instrument
+        for (const symbol of symbolList) {
+            resolved.set(symbol, exactMap.get(symbol) || baseMap.get(symbol) || null);
+        }
+
+        const foundSymbols = symbolList.filter((symbol) => resolved.get(symbol));
+        const notFoundSymbols = symbolList.filter((symbol) => !resolved.get(symbol));
+
+        // The canonical Zerodha tradingsymbol -- may differ from what the
+        // user typed (e.g. "IVP" -> "IVP-BE") -- is what gets stored and
+        // queued, so `companies` stays accurate to Zerodha's real listing.
+        const canonicalSymbols = foundSymbols.map((symbol) => resolved.get(symbol).tradingsymbol.toUpperCase());
+
+        if (foundSymbols.length > 0) {
+            const companiesToUpsert = foundSymbols.map((symbol) => {
+                const instrument = resolved.get(symbol);
                 return {
-                    symbol,
-                    company_name: instrument?.name || symbol,
+                    symbol: instrument.tradingsymbol.toUpperCase(),
+                    company_name: instrument.name,
                     exchange,
-                    instrument_token: instrument?.instrument_token || symbol,
-                    segment: instrument?.segment || "",
-                    exchange_token: instrument?.exchange_token || "",
+                    instrument_token: instrument.instrument_token,
+                    segment: instrument.segment,
+                    exchange_token: instrument.exchange_token,
                 };
             });
 
             await marketService.upsertCompanies(companiesToUpsert);
         }
 
-        for (const symbol of symbolList) {
+        // A symbol that no longer exists on Zerodha (under its plain form or
+        // any settlement-series suffix) shouldn't keep a stale row (and its
+        // historical_prices, via ON DELETE CASCADE) lingering in `companies`
+        // -- e.g. it was delisted since it was last synced.
+        for (const symbol of notFoundSymbols) {
+            await marketService.removeCompany(symbol, exchange);
+        }
+
+        if (notFoundSymbols.length === symbolList.length) {
+            return res.status(404).json({
+                success: false,
+                message: `${notFoundSymbols.join(", ")} not found on ${exchange}/Zerodha.`,
+            });
+        }
+
+        // Queue under the canonical Zerodha tradingsymbol, not necessarily
+        // what the user typed -- that's what's now actually stored in
+        // `companies` and what the worker/getCompaniesBySymbols look up by.
+        for (const symbol of canonicalSymbols) {
             await enqueueSymbolSync(symbol, interval, exchange);
         }
 
+        const resolutionNote = foundSymbols
+            .map((symbol) => resolved.get(symbol).tradingsymbol.toUpperCase())
+            .some((canonical, i) => canonical !== foundSymbols[i])
+            ? ` (resolved to: ${foundSymbols.map((s) => `${s} -> ${resolved.get(s).tradingsymbol.toUpperCase()}`).join(", ")})`
+            : "";
+
         return res.json({
             success: true,
-            queued: symbolList,
-            message: "Historical sync queued; check back shortly.",
+            queued: canonicalSymbols,
+            notFound: notFoundSymbols,
+            message:
+                notFoundSymbols.length > 0
+                    ? `Queued ${canonicalSymbols.join(", ")}${resolutionNote}; ${notFoundSymbols.join(", ")} not found on ${exchange}/Zerodha and removed from companies.`
+                    : `Historical sync queued; check back shortly.${resolutionNote}`,
         });
     } catch (err) {
         console.error("Sync error:", err);

@@ -1,0 +1,13 @@
+goes2go
+cartopy
+netCDF4
+h5netcdf
+h5py
+xarray
+pyproj
+pvlib
+pandas
+numpy
+matplotlib
+seaborn
+pyarrow
