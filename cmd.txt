@@ -103,11 +103,14 @@ docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
 # range instead (swap the WHERE clause above).
 
 
-S C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js  
-◇ injected env (13) from .env // tip: ⌘ enable debugging { debug: true }
+PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js
+◇ injected env (13) from .env // tip: ⌁ auth for agents [www.vestauth.com]
 PostgreSQL connected
 Found 56 failed jobs.
 Fetching current Kite instrument dump for NSE...
+  -> raw instruments fetched: 9986
+  -> usable map size: 9985
+  -> sanity check RELIANCE present: true
 
 Fixed instrument_token for 0 symbols:
 
