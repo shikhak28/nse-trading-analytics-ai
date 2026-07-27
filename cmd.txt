@@ -103,14 +103,45 @@ docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
 # range instead (swap the WHERE clause above).
 
 
-PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js 
-◇ injected env (13) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+S C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js  
+◇ injected env (13) from .env // tip: ⌘ enable debugging { debug: true }
 PostgreSQL connected
 Found 56 failed jobs.
 Fetching current Kite instrument dump for NSE...
-[fix-failed-sync] failed: TypeError: Cannot read properties of undefined (reading 'toUpperCase')
-    at C:\Users\vivek\nse-trading-analytics-ai\backend\scripts\fixFailedSync.js:35:84
-    at Array.map (<anonymous>)
-    at main (C:\Users\vivek\nse-trading-analytics-ai\backend\scripts\fixFailedSync.js:35:56)
-    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+Fixed instrument_token for 0 symbols:
+
+NOT FOUND in current Kite dump (likely delisted/renamed) -- 28 symbols, will NOT retry:
+  NSE:VIPULLTD
+  NSE:TRIVENI
+  NSE:TIRUPATIFL
+  NSE:TICL
+  NSE:SIGMAADV
+  NSE:SHARDUL
+  NSE:PPAP
+  NSE:PANACHE
+  NSE:ONMOBILE
+  NSE:MTARTECH
+  NSE:MAZDA
+  NSE:KAUSHALYA
+  NSE:JBCHEPHARM
+  NSE:IVP
+  NSE:INVPRECQ
+  NSE:HEXAGON
+  NSE:GRADIENTE
+  NSE:GINNIFILA
+  NSE:GANGAFORGE
+  NSE:EMAMIPAP
+  NSE:DBSTOCKBRO
+  NSE:DAMODARIND
+  NSE:CONSOFINVT
+  NSE:BTTL
+  NSE:BNALTD
+  NSE:BHARATGEAR
+  NSE:AURIGROW
+  NSE:AARTECH
+
+Token already correct (failure was something else) -- 0 symbols:
+
+Retried 0 jobs. Make sure historicalWorker.js is running to process them.
 PS C:\Users\vivek\nse-trading-analytics-ai> 
