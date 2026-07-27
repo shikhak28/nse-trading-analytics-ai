@@ -1,4 +1,4 @@
-const columns = "grid grid-cols-[1.8fr_0.9fr_0.8fr_0.9fr_1.1fr_1.1fr_0.9fr_0.9fr_0.9fr_0.9fr_1fr] items-center gap-3";
+const columns = "grid grid-cols-[1.8fr_0.9fr_0.8fr_0.9fr_1.1fr_1.1fr_0.9fr_0.9fr_0.9fr_0.9fr_1fr_0.9fr] items-center gap-3";
 
 const formatNumber = (value) =>
   value === null || value === undefined ? "-" : Number(value).toLocaleString("en-IN");
@@ -41,6 +41,7 @@ export function CompanyRowHeader() {
       <span>Circuit (U/L)</span>
       <span>Updated</span>
       <span>Status</span>
+      <span>History</span>
     </div>
   );
 }
@@ -107,6 +108,13 @@ export function CompanyRow({ index, style, companies, quotes = {}, onRowClick })
           <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium">Live</span>
         ) : (
           <span className="text-slate-500 dark:text-slate-400">{formatDate(company.last_candle_at)}</span>
+        )}
+      </span>
+      <span>
+        {company.missing_history ? (
+          <span className="px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 text-[11px] font-medium">Missing</span>
+        ) : (
+          <span className="px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-[11px] font-medium">OK</span>
         )}
       </span>
     </div>
