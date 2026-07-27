@@ -104,6 +104,165 @@ docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
 
 
 
-node -e "require('dotenv').config({path:require('path').resolve(__dirname,'.env')}); const { historicalSchedulerQueue } = require('./backend/queues'); historicalSchedulerQueue.add('instrument-master-refresh', { exchange: 'NSE' }).then(() => process.exit(0));"
+PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\queueStatus.js 30
+◇ injected env (13) from .env // tip: ⌘ suppress logs { quiet: true }
+Job counts: {
+  waiting: 4264,
+  active: 0,
+  delayed: 0,
+  completed: 200,
+  failed: 56,
+  paused: 0
+}
+
+-- waiting (showing up to 30) --
+sync:NSE-ZYDUSWELL:minute (NSE:ZYDUSWELL, minute)
+sync:NSE-ZYDUSWELL:day (NSE:ZYDUSWELL, day)
+sync:NSE-ZYDUSLIFE:minute (NSE:ZYDUSLIFE, minute)
+sync:NSE-ZYDUSLIFE:day (NSE:ZYDUSLIFE, day)
+sync:NSE-ZUARIIND:minute (NSE:ZUARIIND, minute)
+sync:NSE-ZUARIIND:day (NSE:ZUARIIND, day)
+sync:NSE-ZUARI:minute (NSE:ZUARI, minute)
+sync:NSE-ZUARI:day (NSE:ZUARI, day)
+sync:NSE-ZSARACOM:minute (NSE:ZSARACOM, minute)
+sync:NSE-ZSARACOM:day (NSE:ZSARACOM, day)
+sync:NSE-ZOTA:minute (NSE:ZOTA, minute)
+sync:NSE-ZOTA:day (NSE:ZOTA, day)
+sync:NSE-ZODIACLOTH:minute (NSE:ZODIACLOTH, minute)
+sync:NSE-ZODIACLOTH:day (NSE:ZODIACLOTH, day)
+sync:NSE-ZFSTEERING:minute (NSE:ZFSTEERING, minute)
+sync:NSE-ZFSTEERING:day (NSE:ZFSTEERING, day)
+sync:NSE-ZFCVINDIA:minute (NSE:ZFCVINDIA, minute)
+sync:NSE-ZFCVINDIA:day (NSE:ZFCVINDIA, day)
+sync:NSE-ZENTEC:minute (NSE:ZENTEC, minute)
+sync:NSE-ZENTEC:day (NSE:ZENTEC, day)
+sync:NSE-ZENSARTECH:minute (NSE:ZENSARTECH, minute)
+sync:NSE-ZENSARTECH:day (NSE:ZENSARTECH, day)
+sync:NSE-ZENITHSTL:minute (NSE:ZENITHSTL, minute)
+sync:NSE-ZENITHSTL:day (NSE:ZENITHSTL, day)
+sync:NSE-ZENITHEXPO:minute (NSE:ZENITHEXPO, minute)
+sync:NSE-ZENITHEXPO:day (NSE:ZENITHEXPO, day)
+sync:NSE-ZEEMEDIA:minute (NSE:ZEEMEDIA, minute)
+sync:NSE-ZEEMEDIA:day (NSE:ZEEMEDIA, day)
+sync:NSE-ZEEL:minute (NSE:ZEEL, minute)
+sync:NSE-ZEEL:day (NSE:ZEEL, day)
+
+-- completed (showing up to 30) --
+sync:NSE-SECURKLOUD:minute (NSE:SECURKLOUD, minute)
+sync:NSE-SEDEMAC:day (NSE:SEDEMAC, day)
+sync:NSE-SECURKLOUD:day (NSE:SECURKLOUD, day)
+sync:NSE-SEAMECLTD:minute (NSE:SEAMECLTD, minute)
+sync:NSE-SECMARK:minute (NSE:SECMARK, minute)
+sync:NSE-SECMARK:day (NSE:SECMARK, day)
+sync:NSE-SDBL:minute (NSE:SDBL, minute)
+sync:NSE-SEAMECLTD:day (NSE:SEAMECLTD, day)
+sync:NSE-SDBL:day (NSE:SDBL, day)
+sync:NSE-SCPL:minute (NSE:SCPL, minute)
+sync:NSE-SCODATUBES:minute (NSE:SCODATUBES, minute)
+sync:NSE-SCPL:day (NSE:SCPL, day)
+sync:NSE-SCILAL:minute (NSE:SCILAL, minute)
+sync:NSE-SCODATUBES:day (NSE:SCODATUBES, day)
+sync:NSE-SCILAL:day (NSE:SCILAL, day)
+sync:NSE-SCI:minute (NSE:SCI, minute)
+sync:NSE-SCHNEIDER:minute (NSE:SCHNEIDER, minute)
+sync:NSE-SCI:day (NSE:SCI, day)
+sync:NSE-SCHAND:minute (NSE:SCHAND, minute)
+sync:NSE-SCHNEIDER:day (NSE:SCHNEIDER, day)
+sync:NSE-SCHAND:day (NSE:SCHAND, day)
+sync:NSE-SCHAEFFLER:minute (NSE:SCHAEFFLER, minute)
+sync:NSE-SCANSTL:minute (NSE:SCANSTL, minute)
+sync:NSE-SCHAEFFLER:day (NSE:SCHAEFFLER, day)
+sync:NSE-SBIVALETF:minute (NSE:SBIVALETF, minute)
+sync:NSE-SCANSTL:day (NSE:SCANSTL, day)
+sync:NSE-SBIVALETF:day (NSE:SBIVALETF, day)
+sync:NSE-SBISMLETF:minute (NSE:SBISMLETF, minute)
+sync:NSE-SBISILVER:minute (NSE:SBISILVER, minute)
+sync:NSE-SBISMLETF:day (NSE:SBISMLETF, day)
+
+-- failed (showing up to 30) --
+sync:NSE-VIPULLTD:minute (NSE:VIPULLTD, minute) -- invalid token
+sync:NSE-VIPULLTD:day (NSE:VIPULLTD, day) -- invalid token
+sync:NSE-TRIVENI:minute (NSE:TRIVENI, minute) -- invalid token
+sync:NSE-TRIVENI:day (NSE:TRIVENI, day) -- invalid token
+sync:NSE-TIRUPATIFL:minute (NSE:TIRUPATIFL, minute) -- invalid token
+sync:NSE-TIRUPATIFL:day (NSE:TIRUPATIFL, day) -- invalid token
+sync:NSE-TICL:minute (NSE:TICL, minute) -- invalid token
+sync:NSE-TICL:day (NSE:TICL, day) -- invalid token
+sync:NSE-SIGMAADV:minute (NSE:SIGMAADV, minute) -- invalid token
+sync:NSE-SIGMAADV:day (NSE:SIGMAADV, day) -- invalid token
+sync:NSE-SHARDUL:minute (NSE:SHARDUL, minute) -- invalid token
+sync:NSE-SHARDUL:day (NSE:SHARDUL, day) -- invalid token
+sync:NSE-PPAP:minute (NSE:PPAP, minute) -- invalid token
+sync:NSE-PPAP:day (NSE:PPAP, day) -- invalid token
+sync:NSE-PANACHE:minute (NSE:PANACHE, minute) -- invalid token
+sync:NSE-PANACHE:day (NSE:PANACHE, day) -- invalid token
+sync:NSE-ONMOBILE:minute (NSE:ONMOBILE, minute) -- invalid token
+sync:NSE-ONMOBILE:day (NSE:ONMOBILE, day) -- invalid token
+sync:NSE-MTARTECH:minute (NSE:MTARTECH, minute) -- invalid token
+sync:NSE-MTARTECH:day (NSE:MTARTECH, day) -- invalid token
+sync:NSE-MAZDA:minute (NSE:MAZDA, minute) -- invalid token
+sync:NSE-MAZDA:day (NSE:MAZDA, day) -- invalid token
+sync:NSE-KAUSHALYA:minute (NSE:KAUSHALYA, minute) -- invalid token
+sync:NSE-KAUSHALYA:day (NSE:KAUSHALYA, day) -- invalid token
+sync:NSE-JBCHEPHARM:day (NSE:JBCHEPHARM, day) -- invalid token
+sync:NSE-JBCHEPHARM:minute (NSE:JBCHEPHARM, minute) -- invalid token
+sync:NSE-IVP:minute (NSE:IVP, minute) -- invalid token
+sync:NSE-IVP:day (NSE:IVP, day) -- invalid token
+sync:NSE-INVPRECQ:day (NSE:INVPRECQ, day) -- invalid token
+sync:NSE-INVPRECQ:minute (NSE:INVPRECQ, minute) -- invalid token
+PS C:\Users\vivek\nse-trading-analytics-ai> 
 
 
+S C:\Users\vivek\nse-trading-analytics-ai\backend> cd .\scripts\
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\syncToday.js
+◇ injected env (13) from ..\..\.env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+PostgreSQL connected
+[daily-eod-sync] enqueued 2443 symbols (day + minute)
+[sync-today] enqueued 2443 companies (day + minute). Make sure historicalWorker.js is running to process the queue.   
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> ^C
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> ^C
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> ^C
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\syncToday.js
+◇ injected env (13) from ..\..\.env // tip: ⌁ auth for agents [www.vestauth.com]
+PostgreSQL connected
+[daily-eod-sync] enqueued 2443 symbols (day + minute)
+[sync-today] enqueued 2443 companies (day + minute). Make sure historicalWorker.js is running to process the queue.   
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> ^C
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> ^C
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\syncToday.js
+◇ injected env (13) from ..\..\.env // tip: ◈ encrypted .env [www.dotenvx.com]
+PostgreSQL connected
+[daily-eod-sync] enqueued 2443 symbols (day + minute)
+[sync-today] enqueued 2443 companies (day + minute). Make sure historicalWorker.js is running to process the queue.
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts>
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\backfillMinuteHistory.js day                       
+◇ injected env (13) from ..\..\.env // tip: ⌘ enable debugging { debug: true }
+PostgreSQL connected
+[backfill-minute-history] enqueued 0 symbols for minute-interval sync (DAY only)
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> 
+
+
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\backfillMinuteHistory.js minute   
+◇ injected env (13) from ..\..\.env // tip: ◈ secrets for agents [www.dotenvx.com]
+PostgreSQL connected
+[backfill-minute-history] enqueued 0 symbols for minute-interval sync (MINUTE only)
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> 
+
+[historical-sync] completed: sync-symbol (sync:NSE-SINCLAIR:day)
+[historical-sync] NSE:SINCLAIR (minute): 73 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SINCLAIR:minute)
+[historical-sync] NSE:SIMPLEXINF (minute): 125 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SIMPLEXINF:minute)
+[historical-sync] completed: sync-symbol (sync:NSE-SINDHUTRAD:day)
+[historical-sync] completed: sync-symbol (sync:NSE-SINGERIND:day)
+[historical-sync] NSE:SINDHUTRAD (minute): 160 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SINDHUTRAD:minute)
+[historical-sync] completed: sync-symbol (sync:NSE-SINTERCOM:day)
+[historical-sync] NSE:SINTERCOM (minute): 53 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SINTERCOM:minute)
+[historical-sync] NSE:SINGERIND (minute): 106 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SINGERIND:minute)
+[historical-sync] completed: sync-symbol (sync:NSE-SIRCA:day)
+[historical-sync] completed: sync-symbol (sync:NSE-SIS:day)
+[historical-sync] NSE:SIRCA (minute): 177 candles synced
+[historical-sync] completed: sync-symbol (sync:NSE-SIRCA:minute)
