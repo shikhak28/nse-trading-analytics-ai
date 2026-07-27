@@ -64,11 +64,7 @@ async function registerSchedules() {
         { exchange: "NSE" },
         { repeat: { pattern: "0 0 3 * * 0", tz: "Asia/Kolkata" }, jobId: "instrument-master-refresh-nse" }
     );
-    await historicalSchedulerQueue.add(
-        "instrument-master-refresh",
-        { exchange: "BSE" },
-        { repeat: { pattern: "0 15 3 * * 0", tz: "Asia/Kolkata" }, jobId: "instrument-master-refresh-bse" }
-    );
+    
 
     // 7:00 AM IST, every day -- computes yesterday's movers leaderboard,
     // once the previous day's EOD sync has had all night to finish draining.
@@ -78,7 +74,8 @@ async function registerSchedules() {
         { repeat: { pattern: "0 0 7 * * *", tz: "Asia/Kolkata" }, jobId: "daily-movers-snapshot" }
     );
 
-    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE+BSE), daily-movers-snapshot.");
+    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE), daily-movers-snapshot.");
+
 }
 
 registerSchedules().catch((err) => {
