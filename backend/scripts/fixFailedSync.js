@@ -53,10 +53,20 @@ async function main() {
     const alreadyOk = [];
 
     for (const { exchange, symbol } of uniqueSymbols.values()) {
-        const kiteMatch = dumpByExchange[exchange].get(symbol);
+        // Some NSE stocks get moved into the "BE" (trade-to-trade/surveillance)
+        // series, where Kite's tradingsymbol itself carries a "-BE" suffix --
+        // the plain EQ-series tradingsymbol we have stored no longer exists,
+        // even though the company still trades (just under that suffixed
+        // symbol). The historical-data API only cares about instrument_token,
+        // not the tradingsymbol, so it's safe to pull the token from the
+        // "-BE" listing while keeping our own `symbol` column unchanged.
+        const kiteMatch = dumpByExchange[exchange].get(symbol) || dumpByExchange[exchange].get(`${symbol}-BE`);
         if (!kiteMatch) {
             const closeMatches = [...dumpByExchange[exchange].keys()].filter((k) => k.includes(symbol) || symbol.includes(k));
-            notFound.push(`${exchange}:${symbol}${closeMatches.length ? ` (close matches in dump: ${closeMatches.join(", ")})` : " (no close matches at all)"}`);
+            notFound.push({
+                key: `${exchange}:${symbol}`,
+                label: `${exchange}:${symbol}${closeMatches.length ? ` (close matches in dump: ${closeMatches.join(", ")})` : " (no close matches at all)"}`,
+            });
             continue;
         }
 
@@ -81,12 +91,12 @@ async function main() {
     fixed.forEach((s) => console.log(`  ${s}`));
 
     console.log(`\nNOT FOUND in current Kite dump (likely delisted/renamed) -- ${notFound.length} symbols, will NOT retry:`);
-    notFound.forEach((s) => console.log(`  ${s}`));
+    notFound.forEach((s) => console.log(`  ${s.label}`));
 
     console.log(`\nToken already correct (failure was something else) -- ${alreadyOk.length} symbols:`);
     alreadyOk.forEach((s) => console.log(`  ${s}`));
 
-    const skipSet = new Set(notFound);
+    const skipSet = new Set(notFound.map((s) => s.key));
     let retried = 0;
     for (const job of failedJobs) {
         const key = `${job.data.exchange}:${job.data.symbol}`;
