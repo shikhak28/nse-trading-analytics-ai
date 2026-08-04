@@ -79,18 +79,8 @@ node depthWorker.js
 -----------
 UlYdX0mywddtXZsxY2DM23vyJApL07nZ
 
-[live-ticker] periodic circuit-limit refresh failed: Insufficient permission for that call.
-[live-ticker] error: Unexpected server response: 403
-[live-ticker] disconnected: undefined
-[live-ticker] reconnecting (attempt 1, in 1ms)
-[live-ticker] error: Unexpected server response: 403
-[live-ticker] disconnected: undefined
-[live-ticker] reconnecting (attempt 2, in 2ms)
-[live-ticker] error: Unexpected server response: 403
-[live-ticker] disconnected: undefined
-[live-ticker] reconnecting (attempt 3, in 4ms)
-[live-ticker] error: Unexpected server response: 403
-[live-ticker] disconnected: undefined
-[live-ticker] reconnecting (attempt 4, in 5ms)
-
-eqyqhn6k90oqi7upvydedebz8t7bjky2
+#icc14b8r0b41okps7qoxfaqyidxmpf0i
+KITE_API_KEY=ug1gtnh2px5bt45w
+KITE_API_SECRET=0as60fyplswi9nj70ie8uzhp1qb8wpyv
+KITE_REDIRECT_URL=http://localhost:5000/auth/callback
+FRONTEND_URL=http://localhost:5173
