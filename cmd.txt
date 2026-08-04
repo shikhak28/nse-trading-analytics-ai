@@ -79,46 +79,16 @@ node depthWorker.js
 -----------
 UlYdX0mywddtXZsxY2DM23vyJApL07nZ
 
-
-
-
-
-PORT=5000
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=stockdb
-DB_USER=admin
-DB_PASSWORD=admin
-
-REDIS_URL=redis://localhost:6379
-#fe7djteikuha2w9s
-#5cx0rz08gkws3q9c
-#6baa3xfdc7g52x4ap8ooyvwylre2a3gw
-#00---
-#icc14b8r0b41okps7qoxfaqyidxmpf0i
-KITE_API_KEY=fe7djteikuha2w9s
-KITE_API_SECRET=6baa3xfdc7g52x4ap8ooyvwylre2a3gw
-KITE_REDIRECT_URL=http://localhost:5000/auth/callback
-FRONTEND_URL=http://localhost:5173
-
-# Signs the session cookie (express-session) -- keep secret, rotate to log
-# every tenant out at once if it's ever exposed.
-SESSION_SECRET=5eaed20e061d4302a441ece6c7dec55577cc92aff4e1abbb46d119a53bd73eb7
-
-# Your own Zerodha client ID (the `user_id` Kite returns after login -- also
-# visible in the `broker_user_id` column of the `users` table, or in
-# GET /auth/status's `user.broker_user_id` field once you've logged in).
-# This account is the one the shared market-data pipeline (instrument master
-# refresh, historical backfill, the live ticker, the dashboard's "Sync a
-# symbol"/"Sync latest data now" buttons) always runs as, regardless of
-# which tenant is logged into the app -- fill this in with YOUR OWN Zerodha
-# client ID after your first login, then restart historicalWorker.js/
-# depthWorker.js to pick it up.
-SYSTEM_BROKER_USER_ID=
-
-# AI Trading Agent: free, local-first via Ollama (https://ollama.com).
-# Install it, run `ollama pull llama3.1` (or another tool-calling-capable
-# model), then `ollama serve` before using the Agent page.
-OLLAMA_HOST=http://127.0.0.1:11434
-OLLAMA_MODEL=llama3.2:3b
+[live-ticker] periodic circuit-limit refresh failed: Insufficient permission for that call.
+[live-ticker] error: Unexpected server response: 403
+[live-ticker] disconnected: undefined
+[live-ticker] reconnecting (attempt 1, in 1ms)
+[live-ticker] error: Unexpected server response: 403
+[live-ticker] disconnected: undefined
+[live-ticker] reconnecting (attempt 2, in 2ms)
+[live-ticker] error: Unexpected server response: 403
+[live-ticker] disconnected: undefined
+[live-ticker] reconnecting (attempt 3, in 4ms)
+[live-ticker] error: Unexpected server response: 403
+[live-ticker] disconnected: undefined
+[live-ticker] reconnecting (attempt 4, in 5ms)
