@@ -1,37 +1,85 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
 
-const TARGET_META = {
-  next_day_return: { label: "Predicted Next-Day Return", isReturn: true },
-  eod_return: { label: "Predicted Today's Intraday Return", isReturn: true },
-  p_move_up_2pct: { label: "Likely to Rise ≥2%", isReturn: false },
-  p_move_down_2pct: { label: "Likely to Fall ≥2%", isReturn: false },
-};
+const PAGE_SIZE = 20;
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatPercent(value, digits) {
+function formatPercent(value) {
   if (value === null || value === undefined) return "—";
-  return `${(Number(value) * 100).toFixed(digits)}%`;
+  return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
-function groupByTarget(predictions) {
-  const groups = {};
-  for (const row of predictions) {
-    if (!groups[row.target_label]) groups[row.target_label] = [];
-    groups[row.target_label].push(row);
-  }
-  for (const rows of Object.values(groups)) {
-    rows.sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value));
-  }
-  return groups;
+function PredictionList({ title, rows, badgeClass, arrow }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pageRows = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  // Reset to page 1 whenever the underlying list changes (new date, etc.)
+  // otherwise a stale page index can point past the end of a shorter list.
+  useEffect(() => {
+    setPage(0);
+  }, [rows]);
+
+  return (
+    <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-medium">{title}</h2>
+        <span className="text-xs text-slate-500 dark:text-slate-400">{rows.length} companies</span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No predictions for this date yet.</div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {pageRows.map((row) => (
+              <div
+                key={`${row.exchange}-${row.symbol}`}
+                className="flex items-center justify-between rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3"
+              >
+                <div>
+                  <div className="text-sm font-medium">{row.symbol}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{row.exchange}</div>
+                </div>
+                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>
+                  {arrow} {formatPercent(row.predicted_value)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            <span className="text-slate-500 dark:text-slate-400">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function Predictions() {
   const [date, setDate] = useState(todayIso());
-  const [horizon, setHorizon] = useState("next_day");
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,12 +88,7 @@ function Predictions() {
     const loadPredictions = async () => {
       setLoading(true);
       try {
-        // Each horizon has up to 3 target labels, each with one row per
-        // tracked symbol (~2500) -- the API's default limit=100 would only
-        // return whichever target landed first in predicted_at order and
-        // silently drop the rest. This page needs the full set to group by
-        // target_label client-side, so ask for enough rows to cover it.
-        const data = await predictionsApi.getPredictions({ horizon, date, limit: 10000 });
+        const data = await predictionsApi.getPredictions({ horizon: "next_day", date, limit: 10000 });
         if (data.success) {
           setPredictions(data.results);
           setError(null);
@@ -60,13 +103,23 @@ function Predictions() {
     };
 
     loadPredictions();
-  }, [horizon, date]);
+  }, [date]);
 
-  const groups = groupByTarget(predictions);
-  const targetsForHorizon =
-    horizon === "eod"
-      ? ["eod_return"]
-      : ["next_day_return", "p_move_up_2pct", "p_move_down_2pct"];
+  const rising = useMemo(
+    () =>
+      predictions
+        .filter((row) => row.target_label === "p_move_up_2pct")
+        .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
+    [predictions]
+  );
+
+  const falling = useMemo(
+    () =>
+      predictions
+        .filter((row) => row.target_label === "p_move_down_2pct")
+        .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
+    [predictions]
+  );
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -74,43 +127,16 @@ function Predictions() {
         <div>
           <h1 className="text-3xl font-semibold">Predictions</h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Model-generated predictions for the selected date.
+            Companies most likely to move ≥2% tomorrow, by model probability.
           </p>
         </div>
 
-        <div className="flex items-end gap-3">
-          <div className="flex rounded-full border border-slate-200 dark:border-slate-800 overflow-hidden text-sm">
-            <button
-              type="button"
-              onClick={() => setHorizon("next_day")}
-              className={`px-4 py-2 ${
-                horizon === "next_day"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
-              }`}
-            >
-              Next Day
-            </button>
-            <button
-              type="button"
-              onClick={() => setHorizon("eod")}
-              className={`px-4 py-2 ${
-                horizon === "eod"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
-              }`}
-            >
-              Today (EOD)
-            </button>
-          </div>
-
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
-          />
-        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+        />
       </div>
 
       {loading ? (
@@ -122,58 +148,19 @@ function Predictions() {
           {error}
         </div>
       ) : (
-        <div className="space-y-6">
-          {targetsForHorizon.map((target) => {
-            const meta = TARGET_META[target];
-            const rows = groups[target] || [];
-            return (
-              <div key={target}>
-                <h2 className="mb-2 text-lg font-medium">{meta.label}</h2>
-                <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-                  {rows.length === 0 ? (
-                    <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
-                      No predictions for this date yet.
-                    </div>
-                  ) : (
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="text-left text-slate-500 dark:text-slate-400 text-sm">
-                          <th className="p-4 border-b border-slate-200 dark:border-slate-800">Symbol</th>
-                          <th className="p-4 border-b border-slate-200 dark:border-slate-800">Exchange</th>
-                          <th className="p-4 border-b border-slate-200 dark:border-slate-800">
-                            {meta.isReturn ? "Predicted Return" : "Probability"}
-                          </th>
-                          <th className="p-4 border-b border-slate-200 dark:border-slate-800">Confidence</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row) => (
-                          <tr key={`${row.exchange}-${row.symbol}`} className="text-sm">
-                            <td className="p-4 border-b border-slate-100 dark:border-slate-800/70">{row.symbol}</td>
-                            <td className="p-4 border-b border-slate-100 dark:border-slate-800/70">{row.exchange}</td>
-                            <td
-                              className={`p-4 border-b border-slate-100 dark:border-slate-800/70 ${
-                                meta.isReturn
-                                  ? Number(row.predicted_value) >= 0
-                                    ? "text-emerald-600 dark:text-emerald-400"
-                                    : "text-red-600 dark:text-red-400"
-                                  : ""
-                              }`}
-                            >
-                              {formatPercent(row.predicted_value, meta.isReturn ? 2 : 1)}
-                            </td>
-                            <td className="p-4 border-b border-slate-100 dark:border-slate-800/70">
-                              {formatPercent(row.confidence, 1)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <PredictionList
+            title="Likely to Rise ≥2%"
+            rows={rising}
+            arrow="▲"
+            badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+          />
+          <PredictionList
+            title="Likely to Fall ≥2%"
+            rows={falling}
+            arrow="▼"
+            badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+          />
         </div>
       )}
     </div>
