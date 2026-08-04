@@ -15,6 +15,10 @@ const agentRoutes = require("./routes/agent.routes");
 const portfolioRoutes = require("./routes/portfolio.routes");
 const gttRoutes = require("./routes/gtt.routes");
 const ordersRoutes = require("./routes/orders.routes");
+const predictionsRoutes = require("./routes/predictions.routes");
+const verificationRoutes = require("./routes/verification.routes");
+const accuracyRoutes = require("./routes/accuracy.routes");
+const modelRoutes = require("./routes/model.routes");
 const marketSocket = require("./realtime/marketSocket");
 
 const app = express();
@@ -28,6 +32,10 @@ app.use("/agent", agentRoutes);
 app.use("/portfolio", portfolioRoutes);
 app.use("/gtt", gttRoutes);
 app.use("/orders", ordersRoutes);
+app.use("/predictions", predictionsRoutes);
+app.use("/verification", verificationRoutes);
+app.use("/accuracy", accuracyRoutes);
+app.use("/model", modelRoutes);
 
 /**
  * Health Check
