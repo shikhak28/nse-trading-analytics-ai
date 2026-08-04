@@ -80,71 +80,45 @@ node depthWorker.js
 UlYdX0mywddtXZsxY2DM23vyJApL07nZ
 
 
-SELECT * FROM historical_prices WHERE symbol = 'RELIANCE' AND interval = 'day';
-
-=====================================================================
-Export historical data to CSV
-=====================================================================
-
-# Option 1: pgAdmin (GUI)
-# Connect to localhost:5432, database stockdb -> Query Tool -> run the
-# SELECT above (or any filtered query) -> click the download/export icon
-# on the results grid -> CSV.
-
-# Option 2: psql \copy (better for large exports, e.g. a whole symbol's
-# 3-year history -- pgAdmin's grid export gets slow/heavy past a few
-# hundred thousand rows)
-docker exec stock-postgres psql -U admin -d stockdb -c "\copy (SELECT * FROM historical_prices WHERE symbol='RELIANCE' AND interval='day') TO '/tmp/reliance.csv' WITH CSV HEADER"
-docker cp stock-postgres:/tmp/reliance.csv ./reliance.csv
-
-# Careful with "all" data: historical_prices has 136M+ rows across all
-# 2388 companies and 3 years -- exporting the whole table as one CSV
-# would be 10+ GB and impractical to open. Filter by symbol/exchange/date
-# range instead (swap the WHERE clause above).
 
 
-PS C:\Users\vivek\nse-trading-analytics-ai> node .\backend\scripts\fixFailedSync.js
-◇ injected env (13) from .env // tip: ⌘ enable debugging { debug: true }
-PostgreSQL connected
-Found 56 failed jobs.
-Fetching current Kite instrument dump for NSE...
-  -> raw instruments fetched: 9986
-  -> usable map size: 9985
-  -> sanity check RELIANCE present: true
 
-Fixed instrument_token for 0 symbols:
+PORT=5000
 
-NOT FOUND in current Kite dump (likely delisted/renamed) -- 28 symbols, will NOT retry:
-  NSE:VIPULLTD (close matches in dump: VIPULLTD-BE, LT)
-  NSE:TRIVENI (close matches in dump: TRIVENI-BE)
-  NSE:TIRUPATIFL (close matches in dump: TI, TIRUPATIFL-BE, RUPA)
-  NSE:TICL (close matches in dump: TI, TICL-BE)
-  NSE:SIGMAADV (close matches in dump: SIGMAADV-BE, SIGMA)
-  NSE:SHARDUL (close matches in dump: SHARDUL-BE)
-  NSE:PPAP (close matches in dump: PPAP-BE)
-  NSE:PANACHE (close matches in dump: PANACHE-BE)
-  NSE:ONMOBILE (close matches in dump: BIL, ONMOBILE-BE, BI)
-  NSE:MTARTECH (close matches in dump: MTARTECH-BE, TECH)
-  NSE:MAZDA (close matches in dump: MAZDA-BE)
-  NSE:KAUSHALYA (close matches in dump: HAL, KAUSHALYA-BE)
-  NSE:JBCHEPHARM (no close matches at all)
-  NSE:IVP (close matches in dump: IVP-BE, UNIVPHOTO-BE)
-  NSE:INVPRECQ (close matches in dump: INVPRECQ-BE)
-  NSE:HEXAGON (close matches in dump: HEXAGON-BE)
-  NSE:GRADIENTE (close matches in dump: GRADIENTE-BE)
-  NSE:GINNIFILA (close matches in dump: GINNIFILA-BE)
-  NSE:GANGAFORGE (close matches in dump: GANGAFORGE-BE)
-  NSE:EMAMIPAP (close matches in dump: EMAMIPAP-BE)
-  NSE:DBSTOCKBRO (close matches in dump: DBSTOCKBRO-BE)
-  NSE:DAMODARIND (close matches in dump: DAMODARIND-BE)
-  NSE:CONSOFINVT (close matches in dump: CONS, CONSOFINVT-BE)
-  NSE:BTTL (close matches in dump: TTL, BTTL-BE)
-  NSE:BNALTD (close matches in dump: LT, BNALTD-BE)
-  NSE:BHARATGEAR (close matches in dump: BHARATGEAR-BE)
-  NSE:AURIGROW (no close matches at all)
-  NSE:AARTECH (close matches in dump: TECH, AARTECH-BE)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=stockdb
+DB_USER=admin
+DB_PASSWORD=admin
 
-Token already correct (failure was something else) -- 0 symbols:
+REDIS_URL=redis://localhost:6379
+#fe7djteikuha2w9s
+#5cx0rz08gkws3q9c
+#6baa3xfdc7g52x4ap8ooyvwylre2a3gw
+#00---
+#icc14b8r0b41okps7qoxfaqyidxmpf0i
+KITE_API_KEY=fe7djteikuha2w9s
+KITE_API_SECRET=6baa3xfdc7g52x4ap8ooyvwylre2a3gw
+KITE_REDIRECT_URL=http://localhost:5000/auth/callback
+FRONTEND_URL=http://localhost:5173
 
-Retried 56 jobs. Make sure historicalWorker.js is running to process them.
-PS C:\Users\vivek\nse-trading-analytics-ai> 
+# Signs the session cookie (express-session) -- keep secret, rotate to log
+# every tenant out at once if it's ever exposed.
+SESSION_SECRET=5eaed20e061d4302a441ece6c7dec55577cc92aff4e1abbb46d119a53bd73eb7
+
+# Your own Zerodha client ID (the `user_id` Kite returns after login -- also
+# visible in the `broker_user_id` column of the `users` table, or in
+# GET /auth/status's `user.broker_user_id` field once you've logged in).
+# This account is the one the shared market-data pipeline (instrument master
+# refresh, historical backfill, the live ticker, the dashboard's "Sync a
+# symbol"/"Sync latest data now" buttons) always runs as, regardless of
+# which tenant is logged into the app -- fill this in with YOUR OWN Zerodha
+# client ID after your first login, then restart historicalWorker.js/
+# depthWorker.js to pick it up.
+SYSTEM_BROKER_USER_ID=
+
+# AI Trading Agent: free, local-first via Ollama (https://ollama.com).
+# Install it, run `ollama pull llama3.1` (or another tool-calling-capable
+# model), then `ollama serve` before using the Agent page.
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=llama3.2:3b
