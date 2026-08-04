@@ -77,12 +77,12 @@ node depthWorker.js
 
 
 -----------
-C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
-  return pd.read_sql(sql, conn, params=params)
-C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
-  return pd.read_sql(sql, conn, params=params)
-C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
-  return pd.read_sql(sql, conn, params=params)
-C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
-  return pd.read_sql(sql, conn, params=params)
-Traceback (most recent call last):
+ started_at = datetime.utcnow()
+  fold 1: train=446155 val=122998 IC=0.1310
+  fold 2: train=569098 val=132304 IC=0.0990
+  fold 3: train=701352 val=114870 IC=0.0513
+  fold 4: train=816181 val=135816 IC=0.0640
+  fold 5: train=951954 val=133274 IC=0.0869
+  fold 6: train=1085158 val=140300 IC=0.0528
+  fold 7: train=1227643 val=132484 IC=-0.0199
+  fold 8: train=1357819 val=115006 IC=0.0624
