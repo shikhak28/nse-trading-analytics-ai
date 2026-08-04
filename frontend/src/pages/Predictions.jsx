@@ -40,7 +40,12 @@ function Predictions() {
     const loadPredictions = async () => {
       setLoading(true);
       try {
-        const data = await predictionsApi.getPredictions({ horizon, date });
+        // Each horizon has up to 3 target labels, each with one row per
+        // tracked symbol (~2500) -- the API's default limit=100 would only
+        // return whichever target landed first in predicted_at order and
+        // silently drop the rest. This page needs the full set to group by
+        // target_label client-side, so ask for enough rows to cover it.
+        const data = await predictionsApi.getPredictions({ horizon, date, limit: 10000 });
         if (data.success) {
           setPredictions(data.results);
           setError(null);
