@@ -180,3 +180,17 @@ Saved artifact: C:\Users\vivek\nse-trading-analytics-ai\training\artifacts\next_
 Registered model_versions.id=5, status='shadow'.
 Review the metrics above, then manually promote with:
   UPDATE model_versions SET status='production' WHERE id=5;
+
+
+  stockdb=> select id, version_tag, status, trained_at, metrics->>'overall_ic' as ic, metrics->'backtest' AS backtest from model_versions  order by id;
+ id |               version_tag                | status |         trained_at         |         ic          |                                                                 backtest                            
+----+------------------------------------------+--------+----------------------------+---------------------+------------------------------------------------------------------------------------------------------------------------------------------
+  1 | next_day_next_day_return_20260804103653  | shadow | 2026-08-04 19:37:31.942558 | 0.05538409346909079 | {"n_days": 482, "sharpe": 3.9582442767832835, "max_drawdown": -0.14450685006486153, "profit_factor": 2.0470860473878103}
+  2 | next_day_p_move_up_2pct_20260804112332   | shadow | 2026-08-04 20:24:28.082786 | 0.21455805798697392 | {"n_days": 482, "sharpe": 3.0031749276329402, "max_drawdown": -0.16503333126918424, "profit_factor": 1.6995516186750983}
+  3 | next_day_p_move_down_2pct_20260804112525 | shadow | 2026-08-04 20:26:20.979322 | 0.21081489586542976 | {"n_days": 482, "sharpe": -1.856815554743675, "max_drawdown": -0.6506576466152222, "profit_factor": 0.7204497165659196}
+  4 | eod_eod_return_20260804113620            | shadow | 2026-08-04 20:36:57.88791  | 0.08328967548829745 | {"n_days": 482, "sharpe": -1.333552533059736, "max_drawdown": -0.3873573571500853, "profit_factor": 0.7649923540789354}
+  5 | next_day_p_move_down_2pct_20260804115956 | shadow | 2026-08-04 21:00:53.528303 | 0.21081489586542976 | {"side": "short", "n_days": 482, "sharpe": 1.856815554743675, "max_drawdown": -0.18946875530711474, "profit_factor": 1.3880219215944436}
+(5 rows)
+
+
+stockdb=>
