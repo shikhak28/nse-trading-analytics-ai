@@ -86,3 +86,6 @@ node depthWorker.js
   fold 6: train=1085158 val=140300 IC=0.0528
   fold 7: train=1227643 val=132484 IC=-0.0199
   fold 8: train=1357819 val=115006 IC=0.0624
+
+    1 | next_day_next_day_return_20260804103653 | shadow | 2026-08-04 19:37:31.942558 | {"n_folds": 8, "backtest": {"n_days": 482, "sharpe": 3.9582442767832835, "max_drawdown": -0.14450685006486153, "profit_factor": 2.0470860473878103}, "overall_ic": 0.05538409346909079, "fold_metrics": [{"ic": 0.13102720292099698, "fold": 1, "val_rows": 122998}, {"ic": 0.09902732129943473, "fold": 2, "val_rows": 132304}, {"ic": 0.05131247707318458, "fold": 3, "val_rows": 114870}, {"ic": 0.06404934663117856, "fold": 4, "val_rows": 135816}, {"ic": 0.08685309717221341, "fold": 5, "val_rows": 133274}, {"ic": 0.05281019380152625, "fold": 6, "val_rows": 140300}, {"ic": -0.019925042402836796, "fold": 7, "val_rows": 132484}, {"ic": 0.0623513167658117, "fold": 8, "val_rows": 115006}]}
+(1 row)
