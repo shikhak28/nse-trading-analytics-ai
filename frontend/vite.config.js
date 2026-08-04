@@ -18,6 +18,7 @@ export default defineConfig({
       "/orders": "http://localhost:5000",
       "/agent": "http://localhost:5000",
       "/stocks": "http://localhost:5000",
+      "/predictions": "http://localhost:5000",
     },
   },
 })

@@ -11,6 +11,7 @@ import Agent from "./pages/Agent";
 import Trading from "./pages/Trading";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
+import Predictions from "./pages/Predictions";
 
 function AuthenticatedRoutes() {
   return (
@@ -22,6 +23,7 @@ function AuthenticatedRoutes() {
         <Route path="/agent" element={<Agent />} />
         <Route path="/history" element={<History />} />
         <Route path="/history/:symbol" element={<History />} />
+        <Route path="/predictions" element={<Predictions />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
