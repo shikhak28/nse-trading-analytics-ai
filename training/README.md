@@ -21,8 +21,6 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Apply the same schema migrations to the training machine's Postgres — same
-command as the main machine, since Node is set up there too:
 
 ```powershell
 cd ..\backend
@@ -30,14 +28,8 @@ npm run migrate
 ```
 
 These 4 new tables (`features`, `model_versions`, `training_runs`,
-`predictions`, `prediction_verification`) don't exist anywhere yet, on
-either machine, so this is required regardless of how candle data got there.
+`predictions`, `prediction_verification`) 
 
-Copy `.env` (DB_HOST/PORT/NAME/USER/PASSWORD pointed at the *training
-machine's own* Postgres) into the repo root there — `config.py` reads the
-same variable names the Node backend uses, just against a different DB.
-`.env` is git-ignored, so it never arrives via `git pull` — create it by
-hand on each machine.
 
 ## The pipeline
 
