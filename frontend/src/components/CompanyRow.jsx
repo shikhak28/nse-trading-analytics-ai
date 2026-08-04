@@ -76,7 +76,20 @@ export function CompanyRow({ index, style, companies, quotes = {}, onRowClick })
       className={`${columns} px-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition text-[12px] cursor-pointer`}
     >
       <div className="min-w-0">
-        <p className="font-bold text-xs truncate text-slate-800 dark:text-slate-100">{company.symbol}</p>
+        <p className="font-bold text-xs truncate text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+          {company.symbol}
+          {company.circuit_type && (
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                company.circuit_type === "upper"
+                  ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400"
+                  : "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400"
+              }`}
+            >
+              {company.circuit_type === "upper" ? "UPPER" : "LOWER"}
+            </span>
+          )}
+        </p>
         <p className="text-slate-500 dark:text-slate-400 text-[12px] truncate">{company.company_name}</p>
       </div>
       <span className="font-semibold text-slate-800 dark:text-slate-100">{formatNumber(ltp)}</span>
