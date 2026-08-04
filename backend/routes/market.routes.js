@@ -139,6 +139,23 @@ router.get("/movers/range", async (req, res) => {
 });
 
 /**
+ * Tracked companies whose live LTP is at today's upper or lower circuit
+ * limit. Live-only (Redis quote cache) -- no historical persistence exists
+ * for circuit limits, unlike the gainers/losers snapshot history.
+ */
+router.get("/movers/circuit", async (req, res) => {
+    try {
+        const { exchange, type, limit } = req.query;
+
+        const results = await moversService.getCircuitHits({ exchange, type, limit: limit ? Number(limit) : undefined });
+        return res.json({ success: true, type: type || "both", results });
+    } catch (err) {
+        console.error("Circuit hits fetch error:", err);
+        return res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+/**
  * Dates that have a stored daily-movers snapshot, most recent first -- backs
  * the dashboard's day-filter dropdown.
  */

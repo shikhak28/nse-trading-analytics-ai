@@ -35,12 +35,16 @@ async function getAllWithQuotes(exchange) {
 
     const pipeline = redis.pipeline();
     for (const company of companies) {
-        pipeline.hmget(`quote:${company.symbol}`, "ltp", "change_percent", "volume", "total_buy_quantity", "total_sell_quantity");
+        pipeline.hmget(
+            `quote:${company.symbol}`,
+            "ltp", "change_percent", "volume", "total_buy_quantity", "total_sell_quantity",
+            "upper_circuit_limit", "lower_circuit_limit"
+        );
     }
     const results = await pipeline.exec();
 
     return companies.map((company, index) => {
-        const [ltp, changePercent, volume, totalBuyQuantity, totalSellQuantity] = results[index][1] || [];
+        const [ltp, changePercent, volume, totalBuyQuantity, totalSellQuantity, upperCircuitLimit, lowerCircuitLimit] = results[index][1] || [];
         return {
             symbol: company.symbol,
             company_name: company.company_name,
@@ -50,6 +54,8 @@ async function getAllWithQuotes(exchange) {
             volume: toNumberOrNull(volume),
             total_buy_quantity: toNumberOrNull(totalBuyQuantity),
             total_sell_quantity: toNumberOrNull(totalSellQuantity),
+            upper_circuit_limit: toNumberOrNull(upperCircuitLimit),
+            lower_circuit_limit: toNumberOrNull(lowerCircuitLimit),
         };
     });
 }
@@ -92,4 +98,35 @@ async function getByChangeRange({ min, max, exchange, limit = 50 }) {
         .slice(0, limit);
 }
 
-module.exports = { getTopMovers, getByChangeRange, METRICS: Object.keys(METRICS) };
+// LTP is a live tick float, circuit limits come from a separate REST poll
+// (see liveTicker.service.js's refreshCircuitLimits) -- treat "touching" as
+// within a small tolerance rather than requiring exact equality.
+const CIRCUIT_TOLERANCE = 0.05;
+
+/**
+ * Tracked companies whose live LTP is at (or effectively at) today's upper
+ * or lower circuit limit. Same Redis-backed quote source as the other
+ * movers, just filtered instead of ranked.
+ */
+async function getCircuitHits({ exchange, type, limit = 50 } = {}) {
+    if (type && type !== "upper" && type !== "lower") {
+        throw new Error(`Unknown circuit type: ${type}. Expected "upper" or "lower"`);
+    }
+
+    const merged = await getAllWithQuotes(exchange);
+
+    const hits = [];
+    for (const row of merged) {
+        if (row.ltp == null) continue;
+
+        if (type !== "lower" && row.upper_circuit_limit != null && Math.abs(row.ltp - row.upper_circuit_limit) <= CIRCUIT_TOLERANCE) {
+            hits.push({ ...row, circuit_type: "upper" });
+        } else if (type !== "upper" && row.lower_circuit_limit != null && Math.abs(row.ltp - row.lower_circuit_limit) <= CIRCUIT_TOLERANCE) {
+            hits.push({ ...row, circuit_type: "lower" });
+        }
+    }
+
+    return hits.sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, limit);
+}
+
+module.exports = { getTopMovers, getByChangeRange, getCircuitHits, METRICS: Object.keys(METRICS) };
