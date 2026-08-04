@@ -1,34 +1,37 @@
 # Training pipeline
 
 Candle-only (no depth/order-book data — `depth_snapshots` history is too
-short to be useful yet). Runs on the training machine, which has its **own**
-Postgres and independently syncs candles straight from Zerodha (its own
-`historicalWorker.js`/equivalent sync process) — it does NOT get candle data
-copied over from this machine. Code reaches the training machine via
-`git pull` from the same `origin` this repo already pushes to. The only
-thing that ever needs to move between the two machines' databases is
-**predictions flowing back**, so this machine's API can serve them.
+short to be useful yet). Runs on the training machine (Windows, Memurai
+instead of Redis, otherwise the same Node stack as the main machine — same
+`server.js`/`historicalWorker.js`/`depthWorker.js`, `npm run migrate` works
+identically there), which has its **own** Postgres and independently syncs
+candles straight from Zerodha via its own sync process — it does NOT get
+candle data copied over from this machine. Code reaches the training
+machine via `git pull` from the same `origin` this repo already pushes to.
+The only thing that ever needs to move between the two machines' databases
+is **predictions flowing back**, so this machine's API can serve them.
 
 ## One-time setup on the training machine
 
-```bash
-git clone <origin-url>   # or: git pull, if already cloned
-cd stock-platform/training
-python3 -m venv venv && source venv/bin/activate
+```powershell
+git pull
+cd training
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Apply the same schema migrations to the training machine's Postgres (no
-Node there, so run the raw SQL files directly instead of `npm run migrate`)
-— these 4 new tables (`features`, `model_versions`, `training_runs`,
-`predictions`, `prediction_verification`) don't exist anywhere yet, on
-either machine, so this is required regardless of how candle data got there:
+Apply the same schema migrations to the training machine's Postgres — same
+command as the main machine, since Node is set up there too:
 
-```bash
-for f in ../postgres/migrations/*.sql; do
-  psql "$DATABASE_URL" -f "$f"
-done
+```powershell
+cd ..\backend
+npm run migrate
 ```
+
+These 4 new tables (`features`, `model_versions`, `training_runs`,
+`predictions`, `prediction_verification`) don't exist anywhere yet, on
+either machine, so this is required regardless of how candle data got there.
 
 Copy `.env` (DB_HOST/PORT/NAME/USER/PASSWORD pointed at the *training
 machine's own* Postgres) into the repo root there — `config.py` reads the
@@ -64,11 +67,14 @@ hand on each machine.
    ```
 
 4. **Export predictions back** to this machine so the API can serve them
-   (this is the only data that ever flows training-machine → this machine):
-   ```bash
-   /usr/lib/postgresql/17/bin/pg_dump -h <host> -p <port> -U <user> -d <db> \
-     -t model_versions -t training_runs -t predictions -t prediction_verification \
-     -Fc -f predictions_$(date +%F).dump
+   (this is the only data that ever flows training-machine → this machine).
+   On the training machine, using whichever `pg_dump` matches its Postgres
+   version (on Windows, typically under
+   `C:\Program Files\PostgreSQL\<version>\bin\pg_dump.exe`):
+   ```powershell
+   pg_dump -h <host> -p <port> -U <user> -d <db> `
+     -t model_versions -t training_runs -t predictions -t prediction_verification `
+     -Fc -f predictions_2026-07-28.dump
    ```
    Copy it back here, then:
    ```bash
