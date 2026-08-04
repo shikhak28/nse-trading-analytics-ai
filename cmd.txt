@@ -77,10 +77,3 @@ node depthWorker.js
 
 
 -----------
-UlYdX0mywddtXZsxY2DM23vyJApL07nZ
-
-#icc14b8r0b41okps7qoxfaqyidxmpf0i
-KITE_API_KEY=ug1gtnh2px5bt45w
-KITE_API_SECRET=0as60fyplswi9nj70ie8uzhp1qb8wpyv
-KITE_REDIRECT_URL=http://localhost:5000/auth/callback
-FRONTEND_URL=http://localhost:5173

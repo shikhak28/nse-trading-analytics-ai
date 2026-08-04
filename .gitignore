@@ -40,3 +40,12 @@ dump.rdb
 
 # Unrelated stray notebook (not part of this project)
 SKIIPGOES.ipynb
+
+# Training pipeline: generated artifacts, caches, and DB dumps -- large,
+# regenerable, and dump files may contain real market data. Never commit.
+training/artifacts/
+training/cache/
+training/exports/
+training/venv/
+__pycache__/
+*.pyc
