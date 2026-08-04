@@ -89,3 +89,70 @@ node depthWorker.js
 
     1 | next_day_next_day_return_20260804103653 | shadow | 2026-08-04 19:37:31.942558 | {"n_folds": 8, "backtest": {"n_days": 482, "sharpe": 3.9582442767832835, "max_drawdown": -0.14450685006486153, "profit_factor": 2.0470860473878103}, "overall_ic": 0.05538409346909079, "fold_metrics": [{"ic": 0.13102720292099698, "fold": 1, "val_rows": 122998}, {"ic": 0.09902732129943473, "fold": 2, "val_rows": 132304}, {"ic": 0.05131247707318458, "fold": 3, "val_rows": 114870}, {"ic": 0.06404934663117856, "fold": 4, "val_rows": 135816}, {"ic": 0.08685309717221341, "fold": 5, "val_rows": 133274}, {"ic": 0.05281019380152625, "fold": 6, "val_rows": 140300}, {"ic": -0.019925042402836796, "fold": 7, "val_rows": 132484}, {"ic": 0.0623513167658117, "fold": 8, "val_rows": 115006}]}
 (1 row)
+
+
+(venv) PS C:\Users\vivek\nse-trading-analytics-ai\training> python .\train.py --horizon next_day --target p_move_up_2pct 
+Running 8 walk-forward fold(s) for horizon=next_day target=p_move_up_2pct
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  started_at = datetime.utcnow()
+  fold 1: train=446155 val=122998 IC=0.2223
+  fold 2: train=569098 val=132304 IC=0.2216
+  fold 3: train=701352 val=114870 IC=0.1933
+  fold 4: train=816181 val=135816 IC=0.1935
+  fold 5: train=951954 val=133274 IC=0.1882
+  fold 6: train=1085158 val=140300 IC=0.2141
+  fold 7: train=1227643 val=132484 IC=0.1957
+  fold 8: train=1357819 val=115006 IC=0.1919
+
+Overall walk-forward IC: 0.2146
+Top-decile backtest: {'sharpe': 3.0031749276329402, 'max_drawdown': -0.16503333126918424, 'profit_factor': 1.6995516186750983, 'n_days': 482}
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:172: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "finished_at": datetime.utcnow(),
+
+  (venv) PS C:\Users\vivek\nse-trading-analytics-ai\training> python .\train.py --horizon next_day --target p_move_down_2pct
+Running 8 walk-forward fold(s) for horizon=next_day target=p_move_down_2pct
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  started_at = datetime.utcnow()
+  fold 1: train=446155 val=122998 IC=0.2226
+  fold 2: train=569098 val=132304 IC=0.2408
+  fold 3: train=701352 val=114870 IC=0.1828
+  fold 4: train=816181 val=135816 IC=0.2084
+  fold 5: train=951954 val=133274 IC=0.2357
+  fold 6: train=1085158 val=140300 IC=0.2028
+  fold 7: train=1227643 val=132484 IC=0.1012
+  fold 8: train=1357819 val=115006 IC=0.1978
+
+Overall walk-forward IC: 0.2108
+Top-decile backtest: {'sharpe': -1.856815554743675, 'max_drawdown': -0.6506576466152222, 'profit_factor': 0.7204497165659196, 'n_days': 482}
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:172: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "finished_at": datetime.utcnow(),
+
+Saved artifact: C:\Users\vivek\nse-trading-analytics-ai\training\artifacts\next_day_p_move_down_2pct_20260804112525.joblib
+Registered model_versions.id=3, status='shadow'.
+Review the metrics above, then manually promote with:
+  UPDATE model_versions SET status='production' WHERE id=3;
+(venv) PS C:\Users\vivek\nse-trading-analytics-ai\training> 
+
+(venv) PS C:\Users\vivek\nse-trading-analytics-ai\training> python .\train.py --horizon eod --target eod_return
+Running 8 walk-forward fold(s) for horizon=eod target=eod_return
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:99: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  started_at = datetime.utcnow()
+  fold 1: train=446155 val=122998 IC=0.1159
+  fold 2: train=569098 val=132304 IC=0.0930
+  fold 3: train=701352 val=114870 IC=0.0659
+  fold 4: train=816181 val=135816 IC=0.0861
+  fold 5: train=951954 val=133274 IC=0.1115
+  fold 6: train=1085158 val=140300 IC=0.0781
+  fold 7: train=1227643 val=132484 IC=0.0626
+  fold 8: train=1357819 val=115006 IC=0.1149
+
+Overall walk-forward IC: 0.0833
+Top-decile backtest: {'sharpe': -1.333552533059736, 'max_drawdown': -0.3873573571500853, 'profit_factor': 0.7649923540789354, 'n_days': 482}
+C:\Users\vivek\nse-trading-analytics-ai\training\train.py:172: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "finished_at": datetime.utcnow(),
+
+Saved artifact: C:\Users\vivek\nse-trading-analytics-ai\training\artifacts\eod_eod_return_20260804113620.joblib
+Registered model_versions.id=4, status='shadow'.
+Review the metrics above, then manually promote with:
+  UPDATE model_versions SET status='production' WHERE id=4;
+(venv) PS C:\Users\vivek\nse-trading-analytics-ai\training> \
