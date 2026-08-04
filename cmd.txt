@@ -77,3 +77,12 @@ node depthWorker.js
 
 
 -----------
+C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return pd.read_sql(sql, conn, params=params)
+C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return pd.read_sql(sql, conn, params=params)
+C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return pd.read_sql(sql, conn, params=params)
+C:\Users\vivek\nse-trading-analytics-ai\training\db.py:36: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  return pd.read_sql(sql, conn, params=params)
+Traceback (most recent call last):
