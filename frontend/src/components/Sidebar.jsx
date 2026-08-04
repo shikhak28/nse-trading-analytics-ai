@@ -11,6 +11,7 @@ function Sidebar() {
           { to: '/trading', label: 'Trading' },
           { to: '/agent', label: 'AI Agent' },
           { to: '/history', label: 'History' },
+          { to: '/predictions', label: 'Predictions' },
         ].map((item) => (
           <NavLink
             key={item.to}
