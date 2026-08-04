@@ -80,9 +80,21 @@ async function getProfile() {
 }
 
 /**
- * Remove stored token
+ * Remove stored token, revoking it at Zerodha's end first so a copy of the
+ * old token (e.g. from a DB backup) can't still be used there after logout.
  */
 async function clearAccessToken() {
+    const accessToken = await tokenService.getActiveToken();
+
+    if (accessToken) {
+        try {
+            kite.setAccessToken(accessToken);
+            await kite.invalidateAccessToken(accessToken);
+        } catch (err) {
+            console.error("Failed to revoke access token at Zerodha:", err.message);
+        }
+    }
+
     await tokenService.invalidateActiveToken();
 }
 
