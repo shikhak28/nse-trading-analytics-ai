@@ -504,3 +504,12 @@ FROM predictions
 WHERE horizon = 'next_day'
 GROUP BY target_label, d
 ORDER BY target_label, d;
+
+
+   target_label   |     d      | count
+------------------+------------+-------
+ next_day_return  | 2026-08-04 |  2423
+ p_move_down_2pct | 2026-08-04 |  2423
+ p_move_up_2pct   | 2026-08-04 |  2423
+(3 rows)
+
