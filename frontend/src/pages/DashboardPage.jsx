@@ -18,6 +18,8 @@ const FILTERS = [
   { value: "top_bid", label: "Top Bid" },
   { value: "top_sell", label: "Top Sell" },
   { value: "range", label: "% Change Screen" },
+  { value: "circuit_upper", label: "Upper Circuit" },
+  { value: "circuit_lower", label: "Lower Circuit" },
 ];
 
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString("en-IN") : "Never");
@@ -139,7 +141,7 @@ const DashboardPage = () => {
   // backend/services/movers.service.js) or, for a past day, by the persisted
   // snapshot a nightly job stores (see backend/services/dailyMovers.service.js).
   useEffect(() => {
-    if (filter === "all" || filter === "range") return;
+    if (["all", "range", "circuit_upper", "circuit_lower"].includes(filter)) return;
     let ignore = false;
 
     const load = async () => {
@@ -208,6 +210,40 @@ const DashboardPage = () => {
     };
   }, [filter, rangeMin, rangeMax]);
 
+  // "Upper Circuit" / "Lower Circuit" tabs -- tracked companies whose live
+  // LTP is at today's upper or lower circuit limit, respectively (see
+  // backend's /market/movers/circuit?type=upper|lower). Live-only, like the
+  // range screen -- no persisted history to browse. Switching between the
+  // two tabs re-fetches with the other type, swapping the list shown.
+  useEffect(() => {
+    if (filter !== "circuit_upper" && filter !== "circuit_lower") return;
+    let ignore = false;
+    const type = filter === "circuit_upper" ? "upper" : "lower";
+
+    const load = async () => {
+      setCompaniesLoading(true);
+      setCompaniesError(null);
+      try {
+        const data = await marketApi.fetchCircuitHits({ type, limit: 50 });
+        if (ignore) return;
+        if (data.success) {
+          setCompanies(data.results);
+        } else {
+          setCompaniesError(data.message || "Unable to load circuit-limit companies.");
+        }
+      } catch (err) {
+        if (!ignore) setCompaniesError(err.message || "Unable to load circuit-limit companies.");
+      } finally {
+        if (!ignore) setCompaniesLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [filter]);
+
   // "Sync latest data" button -- queues the same day+minute resumable sync
   // for every company that the 4:30 PM IST schedule fires automatically (see
   // backend's /market/historical/sync-latest + historicalWorker.js). Lets
@@ -239,7 +275,7 @@ const DashboardPage = () => {
     setSelectedDay("today");
   };
 
-  const isTopXFilter = !["all", "range"].includes(filter);
+  const isTopXFilter = !["all", "range", "circuit_upper", "circuit_lower"].includes(filter);
 
   const lastSyncedAt = useMemo(() => historySummary[0]?.last_candle, [historySummary]);
 

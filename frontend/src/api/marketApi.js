@@ -57,6 +57,15 @@ export const marketApi = {
     return data;
   },
 
+  fetchCircuitHits: async ({ exchange, type, limit } = {}) => {
+    const params = {};
+    if (exchange) params.exchange = exchange;
+    if (type) params.type = type;
+    if (limit) params.limit = limit;
+    const { data } = await client.get("/market/movers/circuit", { params });
+    return data;
+  },
+
   syncLatest: async () => {
     const { data } = await client.post("/market/historical/sync-latest");
     return data;
