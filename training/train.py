@@ -31,6 +31,14 @@ from evaluate import brier_score, information_coefficient, top_decile_backtest
 from features import FEATURE_COLUMNS
 
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
+# top_decile_backtest always simulates going LONG the top-decile-by-score
+# names. For an up-move-probability target that's the right side to be on;
+# for a down-move-probability target the top decile is exactly who you'd
+# want to short/avoid, not buy -- so the realized returns fed into the
+# backtest get sign-flipped for these targets, turning "top decile" into
+# "best short candidates" and making the reported Sharpe/drawdown/profit
+# factor describe a short strategy instead of an inverted-looking long one.
+SHORT_SIDE_TARGETS = {"p_move_down_2pct"}
 FOLD_MONTHS = 3
 MIN_TRAIN_MONTHS = 12
 
@@ -134,11 +142,15 @@ def main():
 
     if is_classification:
         metrics["brier_score"] = brier_score(all_val_true, all_val_pred)
-    backtest = top_decile_backtest(all_val_dates, all_val_symbols, all_val_returns, all_val_pred)
+
+    is_short_side = args.target in SHORT_SIDE_TARGETS
+    backtest_returns = [-r for r in all_val_returns] if is_short_side else all_val_returns
+    backtest = top_decile_backtest(all_val_dates, all_val_symbols, backtest_returns, all_val_pred)
+    backtest["side"] = "short" if is_short_side else "long"
     metrics["backtest"] = backtest
 
     print(f"\nOverall walk-forward IC: {overall_ic:.4f}" if pd.notna(overall_ic) else "\nOverall walk-forward IC: nan")
-    print(f"Top-decile backtest: {backtest}")
+    print(f"Top-decile backtest ({backtest['side']}): {backtest}")
 
     # Final model: fit on everything up to the last embargo boundary so the
     # artifact reflects the most recent data, same recipe as the folds above.
