@@ -1,10 +1,13 @@
 # Training pipeline
 
 Candle-only (no depth/order-book data — `depth_snapshots` history is too
-short to be useful yet). Runs on the training machine, which has its own
-Postgres copy kept in sync with this machine's DB via manual export/import,
-not a live network connection. Code reaches the training machine via
-`git pull` from the same `origin` this repo already pushes to.
+short to be useful yet). Runs on the training machine, which has its **own**
+Postgres and independently syncs candles straight from Zerodha (its own
+`historicalWorker.js`/equivalent sync process) — it does NOT get candle data
+copied over from this machine. Code reaches the training machine via
+`git pull` from the same `origin` this repo already pushes to. The only
+thing that ever needs to move between the two machines' databases is
+**predictions flowing back**, so this machine's API can serve them.
 
 ## One-time setup on the training machine
 
@@ -16,7 +19,10 @@ pip install -r requirements.txt
 ```
 
 Apply the same schema migrations to the training machine's Postgres (no
-Node there, so run the raw SQL files directly instead of `npm run migrate`):
+Node there, so run the raw SQL files directly instead of `npm run migrate`)
+— these 4 new tables (`features`, `model_versions`, `training_runs`,
+`predictions`, `prediction_verification`) don't exist anywhere yet, on
+either machine, so this is required regardless of how candle data got there:
 
 ```bash
 for f in ../postgres/migrations/*.sql; do
@@ -27,24 +33,13 @@ done
 Copy `.env` (DB_HOST/PORT/NAME/USER/PASSWORD pointed at the *training
 machine's own* Postgres) into the repo root there — `config.py` reads the
 same variable names the Node backend uses, just against a different DB.
+`.env` is git-ignored, so it never arrives via `git pull` — create it by
+hand on each machine.
 
-## The manual cross-machine loop
+## The pipeline
 
-1. **On this machine** — export candles (companies + historical_prices only,
-   no depth):
-   ```bash
-   cd backend && node scripts/exportForTraining.js
-   ```
-   Prints the `.dump` file path and the restore command to run next.
-
-2. **Copy it over** (`scp`/`rsync` the printed path to the training
-   machine), then restore — schema must already exist from the migration
-   step above:
-   ```bash
-   pg_restore -h <host> -p <port> -U <user> -d <db> --data-only --disable-triggers candles_....dump
-   ```
-
-3. **On the training machine**, run the pipeline in order:
+1. **On the training machine**, once its own Zerodha sync has candles in
+   `historical_prices`, run the pipeline in order:
    ```bash
    python build_dataset.py                                   # backfill features table + local parquet cache
    python train.py --horizon next_day --target next_day_return
@@ -57,18 +52,19 @@ same variable names the Node backend uses, just against a different DB.
    factor). Model selection is these metrics, not accuracy — see design doc
    §3. Every run registers a `model_versions` row with `status='shadow'`.
 
-4. **Promote manually** after reviewing the metrics:
+2. **Promote manually** after reviewing the metrics:
    ```sql
    UPDATE model_versions SET status = 'production' WHERE id = <id>;
    ```
 
-5. **Generate + verify predictions** (repeat daily once trusted):
+3. **Generate + verify predictions** (repeat daily once trusted):
    ```bash
    python predict.py
    python verify.py
    ```
 
-6. **Export predictions back** to this machine so the API can serve them:
+4. **Export predictions back** to this machine so the API can serve them
+   (this is the only data that ever flows training-machine → this machine):
    ```bash
    /usr/lib/postgresql/17/bin/pg_dump -h <host> -p <port> -U <user> -d <db> \
      -t model_versions -t training_runs -t predictions -t prediction_verification \
