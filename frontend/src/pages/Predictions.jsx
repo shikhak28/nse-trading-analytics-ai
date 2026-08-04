@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
 
 const PAGE_SIZE = 20;
+// Every tracked company gets scored for both questions independently (is it
+// likely to rise, is it likely to fall) -- these aren't mutually exclusive
+// buckets, so without a threshold both lists would just be the full universe
+// re-sorted. Only surface names the model actually calls "more likely than
+// not" (probability > 50%).
+const MIN_PROBABILITY = 0.5;
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -25,38 +31,38 @@ function PredictionList({ title, rows, badgeClass, arrow }) {
 
   return (
     <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-medium">{title}</h2>
-        <span className="text-xs text-slate-500 dark:text-slate-400">{rows.length} companies</span>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-medium">{title}</h2>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">{rows.length} companies</span>
       </div>
 
       {rows.length === 0 ? (
-        <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">No predictions for this date yet.</div>
+        <div className="py-8 text-center text-xs text-slate-500 dark:text-slate-400">No predictions for this date yet.</div>
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {pageRows.map((row) => (
               <div
                 key={`${row.exchange}-${row.symbol}`}
-                className="flex items-center justify-between rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3"
+                className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2"
               >
                 <div>
-                  <div className="text-sm font-medium">{row.symbol}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">{row.exchange}</div>
+                  <div className="text-xs font-medium">{row.symbol}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{row.exchange}</div>
                 </div>
-                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
                   {arrow} {formatPercent(row.predicted_value)}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="mt-3 flex items-center justify-between text-xs">
             <button
               type="button"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
-              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-full border border-slate-200 dark:border-slate-700 px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Prev
             </button>
@@ -67,7 +73,7 @@ function PredictionList({ title, rows, badgeClass, arrow }) {
               type="button"
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
-              className="rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-full border border-slate-200 dark:border-slate-700 px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Next
             </button>
@@ -108,7 +114,7 @@ function Predictions() {
   const rising = useMemo(
     () =>
       predictions
-        .filter((row) => row.target_label === "p_move_up_2pct")
+        .filter((row) => row.target_label === "p_move_up_2pct" && Number(row.predicted_value) >= MIN_PROBABILITY)
         .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
     [predictions]
   );
@@ -116,7 +122,7 @@ function Predictions() {
   const falling = useMemo(
     () =>
       predictions
-        .filter((row) => row.target_label === "p_move_down_2pct")
+        .filter((row) => row.target_label === "p_move_down_2pct" && Number(row.predicted_value) >= MIN_PROBABILITY)
         .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
     [predictions]
   );
