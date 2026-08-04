@@ -496,3 +496,11 @@ Latest daily candle per exchange: [
 │ 247     │ 'NSE'    │ 'DIACABS'    │ 2026-07-26T15:00:00.000Z │
 │ 248     │ 'NSE'    │ 'GANESHBE'   │ 2026-07-26T15:00:00.000Z │
 └─────────┴──────────┴──────────────┴──────────────────────────┘
+
+
+
+SELECT target_label, predicted_at::date AS d, count(*)
+FROM predictions
+WHERE horizon = 'next_day'
+GROUP BY target_label, d
+ORDER BY target_label, d;
