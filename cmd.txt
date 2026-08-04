@@ -194,3 +194,23 @@ Review the metrics above, then manually promote with:
 
 
 stockdb=>
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> node .\checkScheduledJobs.js      
+◇ injected env (13) from ..\..\.env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+=== daily-eod-sync ===
+  2026-08-04T11:00:01.103Z -- completed, result: {"enqueued":2457}
+
+=== instrument-master-refresh ===
+  2026-08-04T04:46:16.114Z -- completed, result: {"count":2415,"exchange":"NSE"}
+  2026-07-27T11:56:34.678Z -- completed, result: {"count":2411,"exchange":"NSE"}
+  2026-07-27T11:54:24.329Z -- completed, result: {"count":2411,"exchange":"NSE"}
+  2026-07-27T11:45:30.325Z -- completed, result: {"count":2411,"exchange":"NSE"}
+
+=== daily-movers-snapshot ===
+  2026-08-04T04:46:15.660Z -- completed, result: {"date":"2026-08-03","counts":{"gainers":0,"losers":0,"volume":0,"top_bid":0,"top_sell":0}}
+
+Registered schedules (next scheduled run time):
+  instrument-master-refresh: next=2026-08-08T21:30:00.000Z pattern=0 0 3 * * 0
+  daily-eod-sync: next=2026-08-05T11:00:00.000Z pattern=0 30 16 * * 1-5
+  daily-movers-snapshot: next=2026-08-05T01:30:00.000Z pattern=0 0 7 * * *
+PS C:\Users\vivek\nse-trading-analytics-ai\backend\scripts> 
