@@ -513,3 +513,11 @@ ORDER BY target_label, d;
  p_move_up_2pct   | 2026-08-04 |  2423
 (3 rows)
 
+
+-- kal ki predictions verify hui ki nahi
+SELECT count(*), avg(CASE WHEN signal_hit THEN 1.0 ELSE 0.0 END) AS hit_rate
+FROM prediction_verification
+WHERE checkpoint = 'next_day';
+
+-- aaj ki rankings ban gayi ki nahi
+SELECT category, count(*) FROM daily_rankings WHERE ranking_date = CURRENT_DATE GROUP BY category;
