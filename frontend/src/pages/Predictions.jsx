@@ -34,6 +34,45 @@ function formatPercent(value) {
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
+function PredictionRow({ row, badgeClass, arrow }) {
+  const [expanded, setExpanded] = useState(false);
+  const topFeatures = row.explanation?.topFeatures;
+
+  return (
+    <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs font-medium">{row.symbol}</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">{row.exchange}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {topFeatures?.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              title="Why?"
+            >
+              ⓘ Why
+            </button>
+          )}
+          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
+            {arrow} {formatPercent(row.predicted_value)}
+          </span>
+        </div>
+      </div>
+
+      {expanded && topFeatures?.length > 0 && (
+        <ul className="mt-2 space-y-1 border-t border-slate-200 dark:border-slate-700 pt-2 text-[11px] text-slate-500 dark:text-slate-400">
+          {topFeatures.map((f) => (
+            <li key={f.feature}>• {f.phrase}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function PredictionList({ title, rows, badgeClass, arrow, pageSize = PAGE_SIZE }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -58,18 +97,7 @@ function PredictionList({ title, rows, badgeClass, arrow, pageSize = PAGE_SIZE }
         <>
           <div className="space-y-1.5">
             {pageRows.map((row) => (
-              <div
-                key={`${row.exchange}-${row.symbol}`}
-                className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2"
-              >
-                <div>
-                  <div className="text-xs font-medium">{row.symbol}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{row.exchange}</div>
-                </div>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
-                  {arrow} {formatPercent(row.predicted_value)}
-                </span>
-              </div>
+              <PredictionRow key={`${row.exchange}-${row.symbol}`} row={row} badgeClass={badgeClass} arrow={arrow} />
             ))}
           </div>
 
@@ -134,6 +162,9 @@ function Predictions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [expectedGain, setExpectedGain] = useState([]);
+  const [expectedLoss, setExpectedLoss] = useState([]);
+
   useEffect(() => {
     const loadPredictions = async () => {
       setLoading(true);
@@ -152,7 +183,25 @@ function Predictions() {
       }
     };
 
+    const loadMovers = async () => {
+      try {
+        const [gain, loss] = await Promise.all([
+          predictionsApi.getRankings({ date, category: "top_expected_gain" }),
+          predictionsApi.getRankings({ date, category: "top_expected_loss" }),
+        ]);
+        setExpectedGain(gain.success ? gain.results : []);
+        setExpectedLoss(loss.success ? loss.results : []);
+      } catch {
+        // Rankings are a supplementary section -- if rank.py hasn't been run
+        // yet for this date, just show the "no companies" empty state below
+        // instead of failing the whole page.
+        setExpectedGain([]);
+        setExpectedLoss([]);
+      }
+    };
+
     loadPredictions();
+    loadMovers();
   }, [date]);
 
   const rankedRising = useMemo(
@@ -224,36 +273,58 @@ function Predictions() {
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-sm text-red-600 dark:text-red-400">
           {error}
         </div>
-      ) : mode === "topN" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <PredictionList
-            title="Likely to Rise ≥2%"
-            rows={rankedRising.slice(0, TOP_N)}
-            arrow="▲"
-            badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-          />
-          <PredictionList
-            title="Likely to Fall ≥2%"
-            rows={rankedFalling.slice(0, TOP_N)}
-            arrow="▼"
-            badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
-          />
-        </div>
       ) : (
-        <div className="space-y-8">
-          <TierSection
-            title="Likely to Rise ≥2% -- by confidence"
-            rankedRows={rankedRising}
-            arrow="▲"
-            badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-          />
-          <TierSection
-            title="Likely to Fall ≥2% -- by confidence"
-            rankedRows={rankedFalling}
-            arrow="▼"
-            badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
-          />
-        </div>
+        <>
+          {mode === "topN" ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PredictionList
+                title="Likely to Rise ≥2%"
+                rows={rankedRising.slice(0, TOP_N)}
+                arrow="▲"
+                badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              />
+              <PredictionList
+                title="Likely to Fall ≥2%"
+                rows={rankedFalling.slice(0, TOP_N)}
+                arrow="▼"
+                badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+              />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <TierSection
+                title="Likely to Rise ≥2% -- by confidence"
+                rankedRows={rankedRising}
+                arrow="▲"
+                badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              />
+              <TierSection
+                title="Likely to Fall ≥2% -- by confidence"
+                rankedRows={rankedFalling}
+                arrow="▼"
+                badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+              />
+            </div>
+          )}
+
+          <div className="mt-8">
+            <h2 className="mb-3 text-base font-medium">Biggest Expected Movers (by predicted % move)</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PredictionList
+                title="Expected Gainers"
+                rows={expectedGain}
+                arrow="▲"
+                badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              />
+              <PredictionList
+                title="Expected Losers"
+                rows={expectedLoss}
+                arrow="▼"
+                badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

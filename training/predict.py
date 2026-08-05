@@ -14,6 +14,7 @@ import pandas as pd
 
 import db
 from config import CACHE_DIR, TARGET_LABELS
+from explain import build_explainer, compute_shap_batch, top_features_for_row
 
 
 def predict_for_target(horizon, target):
@@ -49,9 +50,17 @@ def predict_for_target(horizon, target):
         confidence = [None] * len(pred)
         predicted_low = predicted_high = [None] * len(pred)
 
+    explainer = build_explainer(model, is_classification)
+    shap_values = compute_shap_batch(explainer, X)
+    direction = "up" if target == "p_move_up_2pct" else "down" if target == "p_move_down_2pct" else "return"
+
     now = datetime.now(timezone.utc)
     rows = []
     for i, (_, row) in enumerate(latest_per_symbol.iterrows()):
+        explanation = top_features_for_row(row, shap_values[i] if shap_values is not None else None)
+        if explanation is not None:
+            explanation["direction"] = direction
+
         rows.append({
             "exchange": row["exchange"],
             "symbol": row["symbol"],
@@ -63,7 +72,7 @@ def predict_for_target(horizon, target):
             "predicted_low": predicted_low[i],
             "predicted_high": predicted_high[i],
             "confidence": float(confidence[i]) if confidence[i] is not None else None,
-            "explanation": None,
+            "explanation": explanation,
         })
 
     db.insert_predictions(rows)

@@ -167,6 +167,33 @@ async function getModelVersions(horizon) {
   return result.rows;
 }
 
+async function getRankings({ date, category } = {}) {
+  const conditions = [];
+  const values = [];
+
+  if (date) {
+    values.push(date);
+    conditions.push(`r.ranking_date = $${values.length}`);
+  }
+  if (category) {
+    values.push(category);
+    conditions.push(`r.category = $${values.length}`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const result = await db.query(
+    `SELECT r.id, r.ranking_date, r.category, r.rank, r.exchange, r.symbol, r.score,
+            p.predicted_value, p.confidence, p.explanation
+     FROM daily_rankings r
+     JOIN predictions p ON p.id = r.prediction_id AND p.predicted_at = r.prediction_predicted_at
+     ${where}
+     ORDER BY r.category, r.rank ASC`,
+    values
+  );
+  return result.rows;
+}
+
 module.exports = {
   getPredictions,
   getPredictionById,
@@ -174,4 +201,5 @@ module.exports = {
   getAccuracy,
   getCurrentModel,
   getModelVersions,
+  getRankings,
 };
