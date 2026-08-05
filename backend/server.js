@@ -19,6 +19,7 @@ const predictionsRoutes = require("./routes/predictions.routes");
 const verificationRoutes = require("./routes/verification.routes");
 const accuracyRoutes = require("./routes/accuracy.routes");
 const modelRoutes = require("./routes/model.routes");
+const rankingRoutes = require("./routes/ranking.routes");
 const marketSocket = require("./realtime/marketSocket");
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/predictions", predictionsRoutes);
 app.use("/verification", verificationRoutes);
 app.use("/accuracy", accuracyRoutes);
 app.use("/model", modelRoutes);
+app.use("/ranking", rankingRoutes);
 
 /**
  * Health Check

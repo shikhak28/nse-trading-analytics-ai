@@ -32,9 +32,9 @@ cd ..\backend
 npm run migrate
 ```
 
-These 4 new tables (`features`, `model_versions`, `training_runs`,
-`predictions`, `prediction_verification`) don't exist yet on that machine's
-Postgres, so this is a required one-time step.
+These new tables (`features`, `model_versions`, `training_runs`,
+`predictions`, `prediction_verification`, `daily_rankings`) don't exist yet
+on that machine's Postgres, so this is a required one-time step.
 
 ## The pipeline
 
@@ -57,17 +57,26 @@ factor). Model selection is these metrics, not accuracy — see design doc
 UPDATE model_versions SET status = 'production' WHERE id = <id>;
 ```
 
-**Generate + verify predictions** (repeat daily once trusted):
+**Generate + verify predictions, then rank** (repeat daily once trusted):
 ```powershell
 python predict.py
 python verify.py
+python rank.py
 ```
+`predict.py` now also computes a SHAP-based "why" (top 3 contributing
+features per prediction, stored in `predictions.explanation`) -- needs
+`shap` from `requirements.txt` (`pip install -r requirements.txt` again if
+you set up `venv` before this was added). `rank.py` writes the day's top-20
+per category (`top_buy`, `top_sell`, `top_expected_gain`,
+`top_expected_loss`) to `daily_rankings` -- only for targets that actually
+have a production model; see the Phase 3 plan for why categories like
+"breakout"/"accumulation" aren't invented without a model behind them.
 
-That's it — `predict.py`/`verify.py` write straight into this machine's own
-Postgres, and its own already-running `server.js` reads from that same DB,
-so `GET /predictions`, `/verification`, `/accuracy`, `/model` are live
-immediately. No export/copy step, since training and serving are the same
-machine here.
+That's it — everything writes straight into this machine's own Postgres,
+and its own already-running `server.js` reads from that same DB, so
+`GET /predictions`, `/verification`, `/accuracy`, `/model`, `/ranking` are
+live immediately. No export/copy step, since training and serving are the
+same machine here.
 
 Nothing here is automated yet (no cron, no scheduler) — this loop should be
 run by hand a few times and the baseline metrics honestly evaluated before
@@ -94,3 +103,7 @@ what "automated" eventually looks like.
   production model, writes `predictions`.
 - `verify.py` — resolves predictions against realized prices, writes
   `prediction_verification`.
+- `explain.py` — SHAP-based feature attribution, called from `predict.py`;
+  `FEATURE_LABELS` maps each engineered feature to a human-readable phrase.
+- `rank.py` — computes the day's top-20 per category from `predictions`,
+  writes `daily_rankings`.

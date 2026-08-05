@@ -16,4 +16,12 @@ export const predictionsApi = {
     const { data } = await client.get("/predictions", { params });
     return data;
   },
+
+  getRankings: async ({ date, category } = {}) => {
+    const params = {};
+    if (date) params.date = date;
+    if (category) params.category = category;
+    const { data } = await client.get("/ranking", { params });
+    return data;
+  },
 };

@@ -205,3 +205,36 @@ def insert_verifications(rows):
         with conn.cursor() as cur:
             psycopg2.extras.execute_values(cur, sql, values)
         conn.commit()
+
+
+def fetch_predictions_for_date(date, target_label, horizon="next_day"):
+    return fetch_df(
+        """
+        SELECT id, exchange, symbol, predicted_at, predicted_value
+        FROM predictions
+        WHERE predicted_at::date = %s AND horizon = %s AND target_label = %s
+        """,
+        (date, horizon, target_label),
+    )
+
+
+def insert_rankings(rows):
+    if not rows:
+        return
+    sql = """
+        INSERT INTO daily_rankings
+            (ranking_date, category, rank, exchange, symbol, prediction_id, prediction_predicted_at, score)
+        VALUES %s
+        ON CONFLICT (ranking_date, category, rank) DO NOTHING
+    """
+    values = [
+        (
+            r["ranking_date"], r["category"], r["rank"], r["exchange"], r["symbol"],
+            r["prediction_id"], r["prediction_predicted_at"], r["score"],
+        )
+        for r in rows
+    ]
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            psycopg2.extras.execute_values(cur, sql, values)
+        conn.commit()
