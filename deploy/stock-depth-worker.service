@@ -1,0 +1,19 @@
+# Runs depthWorker.js -- despite the name, this is now needed only for the
+# LIVE quote/depth feed (liveTicker.service.js, streamed over socket.io).
+# Depth persistence to Postgres was removed (see migration 017); this
+# process no longer writes to depth_snapshots.
+[Unit]
+Description=Stock platform - live ticker (depth worker)
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/stock-platform/backend
+ExecStart=/usr/bin/node depthWorker.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

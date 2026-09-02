@@ -1,0 +1,20 @@
+# Node API server. Copy to /etc/systemd/system/stock-backend.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now stock-backend
+# Adjust User/WorkingDirectory if the repo isn't cloned under /home/ubuntu.
+
+[Unit]
+Description=Stock platform - Node API server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/stock-platform/backend
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
