@@ -1,0 +1,10 @@
+# Daily training loop, once trusted enough to automate (see training/README.md
+# -- this replaces manually running these 4 commands each day). Install with:
+#   crontab -e
+# and paste the line below (adjust paths/venv if different).
+#
+# Timed for 6:00 PM IST -- well after daily-eod-sync (4:30 PM IST) has had
+# time to drain the historical-sync queue for ~2450 symbols. If cron runs in
+# UTC (check `timedatectl`), 6:00 PM IST = 12:30 PM UTC -> "30 12 * * 1-5".
+
+0 18 * * 1-5 cd /home/ubuntu/stock-platform/training && /home/ubuntu/stock-platform/training/venv/bin/python build_dataset.py && /home/ubuntu/stock-platform/training/venv/bin/python predict.py && /home/ubuntu/stock-platform/training/venv/bin/python verify.py && /home/ubuntu/stock-platform/training/venv/bin/python rank.py >> /home/ubuntu/stock-platform/training/cron.log 2>&1
