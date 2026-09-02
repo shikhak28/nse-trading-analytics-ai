@@ -1,8 +1,8 @@
 const dailyMoversService = require("../services/dailyMovers.service");
 
 /**
- * Computes and stores yesterday's top gainers/losers/volume/bid/sell
- * leaderboards. Runs the morning after (not right after EOD sync) because
+ * Computes and stores yesterday's top gainers/losers/volume leaderboards.
+ * Runs the morning after (not right after EOD sync) because
  * dailyEodSync.job.js only *enqueues* that day's candle sync -- the actual
  * Kite fetch is rate-limited (3 req/sec) and can take a while to drain for
  * thousands of symbols, so "yesterday" is the newest date guaranteed to be
