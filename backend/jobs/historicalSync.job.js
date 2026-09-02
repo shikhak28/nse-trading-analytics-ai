@@ -2,11 +2,11 @@ const authService = require("../services/auth.service");
 const marketService = require("../services/market.service");
 const syncService = require("../services/sync.service");
 
-const BACKFILL_YEARS = 3;
+const BACKFILL_YEARS = 1;
 
 /**
- * Resumable per-symbol historical sync. Backfills 3 years on first run,
- * then only fetches the delta since the last stored candle -- safe to
+ * Resumable per-symbol historical sync. Backfills BACKFILL_YEARS on first
+ * run, then only fetches the delta since the last stored candle -- safe to
  * re-run (upserts dedup) and cheap once a symbol is caught up.
  */
 async function processHistoricalSync(job) {
