@@ -3,7 +3,6 @@ const express = require("express");
 const router = express.Router();
 
 const marketService = require("../services/market.service");
-const depthSnapshotService = require("../services/depthSnapshot.service");
 const moversService = require("../services/movers.service");
 const dailyMoversService = require("../services/dailyMovers.service");
 const authService = require("../services/auth.service");
@@ -191,47 +190,6 @@ router.get("/movers/history", async (req, res) => {
     } catch (err) {
         console.error("Movers history fetch error:", err);
         return res.status(400).json({ success: false, message: err.message });
-    }
-});
-
-/**
- * Most recent depth snapshot timestamp across all symbols -- lets the
- * dashboard show how fresh the captured order-book data is.
- */
-router.get("/depth/summary", async (req, res) => {
-    try {
-        const lastSnapshot = await depthSnapshotService.getLatestSnapshotTimestamp();
-        return res.json({ success: true, last_snapshot: lastSnapshot });
-    } catch (err) {
-        console.error("Depth summary fetch error:", err);
-        return res.status(500).json({ success: false, message: err.message });
-    }
-});
-
-/**
- * Stored depth snapshots for a single symbol -- most recent first, capped at
- * `limit` rows (depth is captured every minute during market hours, so this
- * can add up fast; the caller narrows with from/to for a specific day).
- */
-router.get("/depth/stored", async (req, res) => {
-    try {
-        const { symbol, exchange = "NSE", from, to, limit } = req.query;
-
-        if (!symbol) {
-            return res.status(400).json({ success: false, message: "Symbol is required" });
-        }
-
-        const snapshots = await depthSnapshotService.getStoredDepthSnapshots(
-            symbol,
-            exchange,
-            from,
-            to,
-            limit ? Number(limit) : undefined
-        );
-        return res.json({ success: true, symbol, exchange, results: snapshots });
-    } catch (err) {
-        console.error("Depth history fetch error:", err);
-        return res.status(500).json({ success: false, message: err.message });
     }
 });
 

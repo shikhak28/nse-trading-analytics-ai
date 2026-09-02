@@ -6,7 +6,6 @@ import CompanyDetails from "../components/History/CompanyDetails";
 import HistoryChart from "../components/History/HistoryChart";
 import HistoricalTable from "../components/History/HistoricalTable";
 import TimeframeSelector from "../components/History/TimeframeSelector";
-import DepthPanel from "../components/History/DepthPanel";
 import { timeframeToRange } from "../utils/timeframe";
 
 const History = () => {
@@ -28,10 +27,6 @@ const History = () => {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState(null);
   const [syncing, setSyncing] = useState(false);
-
-  const [depthSnapshot, setDepthSnapshot] = useState(null);
-  const [depthLoading, setDepthLoading] = useState(false);
-  const [depthError, setDepthError] = useState(null);
 
   const range = useMemo(() => timeframeToRange(timeframe), [timeframe]);
 
@@ -141,42 +136,6 @@ const History = () => {
     };
   }, [selectedSymbol, range.from, range.to]);
 
-  // Fetch the latest depth snapshot for the selected company -- depth is
-  // captured minute-by-minute (see backend/jobs/depthSnapshot.job.js) and is
-  // independent of whatever's stored in historical_prices, so this loads
-  // separately from the candle fetch above.
-  useEffect(() => {
-    if (!selectedSymbol) return;
-    let ignore = false;
-
-    const load = async () => {
-      setDepthLoading(true);
-      setDepthError(null);
-      try {
-        const result = await marketApi.fetchStoredDepth(selectedSymbol, selectedCompany?.exchange || "NSE", undefined, undefined, 1);
-        if (ignore) return;
-        if (result.success && Array.isArray(result.results) && result.results.length > 0) {
-          setDepthSnapshot(result.results[0]);
-        } else {
-          setDepthSnapshot(null);
-          setDepthError("No depth snapshots captured yet for this company.");
-        }
-      } catch (err) {
-        if (!ignore) {
-          setDepthSnapshot(null);
-          setDepthError(err.message || "Unable to load depth data.");
-        }
-      } finally {
-        if (!ignore) setDepthLoading(false);
-      }
-    };
-
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, [selectedSymbol, selectedCompany?.exchange]);
-
   const periodStats = useMemo(() => {
     if (!candles || candles.length === 0) return null;
     const sorted = [...candles].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -264,8 +223,6 @@ const History = () => {
                 <HistoricalTable candles={candles} />
               </>
             )}
-
-            <DepthPanel snapshot={depthSnapshot} loading={depthLoading} error={depthError} />
           </>
         )}
       </div>

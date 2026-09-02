@@ -6,11 +6,6 @@ const RANKED_METRICS = {
     volume: { orderBy: "volume DESC NULLS LAST", requiresChange: false },
 };
 
-const DEPTH_METRICS = {
-    top_bid: "total_buy_quantity",
-    top_sell: "total_sell_quantity",
-};
-
 /**
  * Computes gainers/losers/volume for `date` from historical_prices' day
  * candles -- prev_close comes from a LAG() window over a bounded 10-day
@@ -38,27 +33,6 @@ async function computeRankedMetrics(date) {
         FROM day_candles dc
         JOIN companies c ON c.exchange = dc.exchange AND c.symbol = dc.symbol
         WHERE dc.d = $1::date
-        `,
-        [date]
-    );
-
-    return result.rows;
-}
-
-/**
- * Top bid/sell quantity for `date` from each symbol's last depth snapshot
- * that day -- depth (order book) has no EOD-candle equivalent, so this reads
- * depth_snapshots directly instead of historical_prices.
- */
-async function computeDepthMetrics(date) {
-    const result = await db.query(
-        `
-        SELECT DISTINCT ON (ds.exchange, ds.symbol)
-               ds.exchange, ds.symbol, c.company_name, ds.total_buy_quantity, ds.total_sell_quantity
-        FROM depth_snapshots ds
-        JOIN companies c ON c.exchange = ds.exchange AND c.symbol = ds.symbol
-        WHERE ds.snapshot_timestamp >= $1::date AND ds.snapshot_timestamp < ($1::date + INTERVAL '1 day')
-        ORDER BY ds.exchange, ds.symbol, ds.snapshot_timestamp DESC
         `,
         [date]
     );
@@ -111,44 +85,17 @@ async function upsertSnapshotRows(date, metric, rows) {
     );
 }
 
-async function upsertDepthSnapshotRows(date, metric, field, rows) {
-    if (rows.length === 0) {
-        return;
-    }
-
-    const values = [];
-    const placeholders = [];
-
-    rows.forEach((row, index) => {
-        const offset = index * 7;
-        placeholders.push(
-            `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`
-        );
-        values.push(date, metric, index + 1, row.exchange, row.symbol, row.company_name, row[field] ?? null);
-    });
-
-    const column = metric === "top_bid" ? "total_buy_quantity" : "total_sell_quantity";
-
-    await db.query(
-        `
-        INSERT INTO daily_movers_snapshot
-            (snapshot_date, metric, rank, exchange, symbol, company_name, ${column})
-        VALUES ${placeholders.join(", ")}
-        ON CONFLICT (snapshot_date, metric, rank) DO UPDATE SET
-            exchange = EXCLUDED.exchange,
-            symbol = EXCLUDED.symbol,
-            company_name = EXCLUDED.company_name,
-            ${column} = EXCLUDED.${column}
-        `,
-        values
-    );
-}
-
 /**
- * Computes and stores all 5 leaderboards (gainers/losers/volume/top_bid/
- * top_sell) for `date` (a "YYYY-MM-DD" string or Date), capped at `limit`
- * each. Meant to run once per day, after that day's historical-prices EOD
- * sync has landed (see backend/jobs/dailyMoversSnapshot.job.js).
+ * Computes and stores the 3 leaderboards (gainers/losers/volume) for `date`
+ * (a "YYYY-MM-DD" string or Date), capped at `limit` each. Meant to run once
+ * per day, after that day's historical-prices EOD sync has landed (see
+ * backend/jobs/dailyMoversSnapshot.job.js).
+ *
+ * top_bid/top_sell (depth-derived) were removed along with depth_snapshots
+ * persistence -- see migration 017 -- since depth data isn't used anywhere
+ * else either. The total_buy_quantity/total_sell_quantity columns on
+ * daily_movers_snapshot stay in the schema (harmless, just always null now)
+ * rather than another migration to drop two unused columns.
  */
 async function computeAndStoreDailyMovers(date, limit = 20) {
     const ranked = await computeRankedMetrics(date);
@@ -162,25 +109,16 @@ async function computeAndStoreDailyMovers(date, limit = 20) {
     await upsertSnapshotRows(date, "losers", losers);
     await upsertSnapshotRows(date, "volume", volume);
 
-    const depthRows = await computeDepthMetrics(date);
-    const topBid = [...depthRows].filter((row) => row.total_buy_quantity != null).sort((a, b) => b.total_buy_quantity - a.total_buy_quantity).slice(0, limit);
-    const topSell = [...depthRows].filter((row) => row.total_sell_quantity != null).sort((a, b) => b.total_sell_quantity - a.total_sell_quantity).slice(0, limit);
-
-    await upsertDepthSnapshotRows(date, "top_bid", "total_buy_quantity", topBid);
-    await upsertDepthSnapshotRows(date, "top_sell", "total_sell_quantity", topSell);
-
     return {
         gainers: gainers.length,
         losers: losers.length,
         volume: volume.length,
-        top_bid: topBid.length,
-        top_sell: topSell.length,
     };
 }
 
 async function getDailyMovers(date, metric, limit = 20) {
-    if (!RANKED_METRICS[metric] && !DEPTH_METRICS[metric]) {
-        throw new Error(`Unknown movers metric: ${metric}. Expected one of ${[...Object.keys(RANKED_METRICS), ...Object.keys(DEPTH_METRICS)].join(", ")}`);
+    if (!RANKED_METRICS[metric]) {
+        throw new Error(`Unknown movers metric: ${metric}. Expected one of ${Object.keys(RANKED_METRICS).join(", ")}`);
     }
 
     const result = await db.query(
@@ -214,5 +152,5 @@ module.exports = {
     computeAndStoreDailyMovers,
     getDailyMovers,
     getAvailableSnapshotDates,
-    METRICS: [...Object.keys(RANKED_METRICS), ...Object.keys(DEPTH_METRICS)],
+    METRICS: Object.keys(RANKED_METRICS),
 };

@@ -7,17 +7,12 @@ require("dotenv").config({
 
 const { Worker } = require("bullmq");
 const connection = require("./config/queueConnection");
-const { depthSchedulerQueue } = require("./queues");
-const { processDepthSnapshot } = require("./jobs/depthSnapshot.job");
 const { processPostgresBackup } = require("./jobs/postgresBackup.job");
 const liveTicker = require("./services/liveTicker.service");
 
 const depthSchedulerWorker = new Worker(
     "depth-scheduler",
     async (job) => {
-        if (job.name === "depth-snapshot") {
-            return processDepthSnapshot();
-        }
         if (job.name === "postgres-backup") {
             return processPostgresBackup();
         }
@@ -35,17 +30,11 @@ depthSchedulerWorker.on("failed", (job, err) => {
 });
 
 async function registerSchedules() {
-    // Every minute, but only actually does anything 9:15-15:30 IST weekdays
-    // (processDepthSnapshot self-checks and no-ops outside that window --
-    // simpler and more precise than fighting cron's minute-range syntax to
-    // encode an exact HH:MM boundary). Firing across the broader 9-15 hour
-    // block just gives the job a chance to run and self-skip the edges.
-    await depthSchedulerQueue.add(
-        "depth-snapshot",
-        {},
-        { repeat: { pattern: "* 9-15 * * 1-5", tz: "Asia/Kolkata" }, jobId: "depth-snapshot" }
-    );
-
+    // depth-snapshot (the Postgres-persistence job) has been removed --
+    // depth_snapshots is no longer stored (unused by the ML pipeline, see
+    // migration 017). depth-scheduler queue/worker stays alive purely
+    // because this process is still needed for liveTicker below.
+    //
     // postgres-backup is intentionally NOT scheduled here right now -- the
     // backup target (external drive) now hosts the live database itself
     // (see /mnt/stockdata), so backing up to the same physical disk isn't
@@ -53,7 +42,7 @@ async function registerSchedules() {
     // (e.g. the internal disk) -- processPostgresBackup() and its job file
     // are still intact, just not wired into the schedule for now.
 
-    console.log("Registered recurring schedules: depth-snapshot (market hours only). postgres-backup is currently disabled.");
+    console.log("No recurring schedules registered on depth-scheduler (depth-snapshot removed, postgres-backup currently disabled).");
 }
 
 registerSchedules().catch((err) => {
@@ -63,11 +52,13 @@ registerSchedules().catch((err) => {
 
 liveTicker.start();
 
-// Permanent, always-on subscription for every tracked company -- needed so
-// depth-snapshot has something to read every minute, independent of
-// whatever's actually visible on someone's Dashboard right now.
+// Permanent, always-on subscription for every tracked company -- powers the
+// live quote/depth feed (Redis-backed, streamed over socket.io) independent
+// of whatever's actually visible on someone's Dashboard right now. This is
+// the reason this process still needs to run even with depth persistence
+// removed.
 liveTicker.subscribeAllTracked().catch((err) => {
     console.error("[live-ticker] subscribeAllTracked failed:", err.message);
 });
 
-console.log("Depth worker process started (queue: depth-scheduler; live ticker active)");
+console.log("Depth worker process started (queue: depth-scheduler idle; live ticker active)");

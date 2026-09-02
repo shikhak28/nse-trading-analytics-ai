@@ -27,7 +27,6 @@ const formatDateTime = (value) => (value ? new Date(value).toLocaleString("en-IN
 const DashboardPage = () => {
   const { isAuthenticated } = useAuth();
   const [historySummary, setHistorySummary] = useState([]);
-  const [depthSummary, setDepthSummary] = useState(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(0);
@@ -57,18 +56,12 @@ const DashboardPage = () => {
   useEffect(() => {
     const loadSummary = async () => {
       try {
-        const [historyData, depthData] = await Promise.all([
-          marketApi.fetchHistoricalSummary(),
-          marketApi.fetchDepthSummary(),
-        ]);
+        const historyData = await marketApi.fetchHistoricalSummary();
         if (historyData.success) {
           setHistorySummary(historyData.results);
         }
-        if (depthData.success) {
-          setDepthSummary(depthData);
-        }
       } catch (err) {
-        console.error("Failed to load history/depth summary", err);
+        console.error("Failed to load history summary", err);
       }
     };
 
@@ -458,10 +451,6 @@ const DashboardPage = () => {
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Candle data synced until</span>
                 <span className="font-semibold">{formatDateTime(lastSyncedAt)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Depth data captured until</span>
-                <span className="font-semibold">{formatDateTime(depthSummary?.last_snapshot)}</span>
               </div>
             </div>
 

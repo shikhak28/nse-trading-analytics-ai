@@ -83,20 +83,6 @@ export const marketApi = {
     return data;
   },
 
-  fetchDepthSummary: async () => {
-    const { data } = await client.get("/market/depth/summary");
-    return data;
-  },
-
-  fetchStoredDepth: async (symbol, exchange, from, to, limit) => {
-    const params = { symbol, exchange };
-    if (from) params.from = from;
-    if (to) params.to = to;
-    if (limit) params.limit = limit;
-    const { data } = await client.get("/market/depth/stored", { params });
-    return data;
-  },
-
   getGTTs: async () => {
     const { data } = await client.get("/gtt");
     return data;

@@ -49,11 +49,5 @@ const db = require("../config/db");
     `);
     console.log("20 companies still missing historical data entirely:", stillMissing.rows);
 
-    const depthCoverage = await db.query(`
-        SELECT count(*) FROM companies c
-        WHERE NOT EXISTS (SELECT 1 FROM depth_snapshots d WHERE d.exchange = c.exchange AND d.symbol = c.symbol)
-    `);
-    console.log("Companies with ZERO depth_snapshots rows:", depthCoverage.rows[0].count);
-
     process.exit(0);
 })().catch((e) => { console.error(e.message); process.exit(1); });
