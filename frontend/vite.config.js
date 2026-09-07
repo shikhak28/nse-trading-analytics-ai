@@ -20,6 +20,7 @@ export default defineConfig({
       "/stocks": "http://localhost:5000",
       "/predictions": "http://localhost:5000",
       "/ranking": "http://localhost:5000",
+      "/socket.io": { target: "http://localhost:5000", ws: true },
     },
   },
 })
