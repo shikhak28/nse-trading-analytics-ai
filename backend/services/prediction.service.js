@@ -1,24 +1,28 @@
 const db = require("../config/db");
 
-async function getPredictions({ symbol, exchange, horizon, date, limit = 100, offset = 0 } = {}) {
+async function getPredictions({ symbol, exchange, horizon, date, sector, limit = 100, offset = 0 } = {}) {
   const conditions = [];
   const values = [];
 
   if (symbol) {
     values.push(symbol);
-    conditions.push(`symbol = $${values.length}`);
+    conditions.push(`p.symbol = $${values.length}`);
   }
   if (exchange) {
     values.push(exchange);
-    conditions.push(`exchange = $${values.length}`);
+    conditions.push(`p.exchange = $${values.length}`);
   }
   if (horizon) {
     values.push(horizon);
-    conditions.push(`horizon = $${values.length}`);
+    conditions.push(`p.horizon = $${values.length}`);
   }
   if (date) {
     values.push(date);
-    conditions.push(`predicted_at::date = $${values.length}`);
+    conditions.push(`p.predicted_at::date = $${values.length}`);
+  }
+  if (sector) {
+    values.push(sector);
+    conditions.push(`c.sector = $${values.length}`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -27,15 +31,24 @@ async function getPredictions({ symbol, exchange, horizon, date, limit = 100, of
   values.push(Number(offset));
 
   const result = await db.query(
-    `SELECT id, exchange, symbol, predicted_at, horizon, target_label, model_version_id,
-            predicted_value, predicted_low, predicted_high, confidence, explanation
-     FROM predictions
+    `SELECT p.id, p.exchange, p.symbol, p.predicted_at, p.horizon, p.target_label, p.model_version_id,
+            p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
+            c.company_name, c.sector
+     FROM predictions p
+     JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol
      ${where}
-     ORDER BY predicted_at DESC
+     ORDER BY p.predicted_at DESC
      LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values
   );
   return result.rows;
+}
+
+async function getSectors() {
+  const result = await db.query(
+    `SELECT DISTINCT sector FROM companies WHERE sector IS NOT NULL ORDER BY sector`
+  );
+  return result.rows.map((row) => row.sector);
 }
 
 async function getPredictionById(id) {
@@ -202,4 +215,5 @@ module.exports = {
   getCurrentModel,
   getModelVersions,
   getRankings,
+  getSectors,
 };
