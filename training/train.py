@@ -31,21 +31,8 @@ from evaluate import brier_score, information_coefficient, top_decile_backtest
 from features import FEATURE_COLUMNS
 
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
-# top_decile_backtest always simulates going LONG the top-decile-by-score
-# names. For an up-move-probability target that's the right side to be on;
-# for a down-move-probability target the top decile is exactly who you'd
-# want to short/avoid, not buy -- so the realized returns fed into the
-# backtest get sign-flipped for these targets, turning "top decile" into
-# "best short candidates" and making the reported Sharpe/drawdown/profit
-# factor describe a short strategy instead of an inverted-looking long one.
 SHORT_SIDE_TARGETS = {"p_move_down_2pct"}
-# Was FOLD_MONTHS=3 / MIN_TRAIN_MONTHS=12 (needs 15 months minimum for even
-# one fold) on Machine 2's 3-year history. Reduced to fit AWS's 1-year
-# BACKFILL_YEARS (see historicalSync.job.js) -- trades off fewer/shorter
-# folds (less confidence generalizing across market regimes) for actually
-# being able to train at all within the shorter retention window. Revisit
-# upward once enough calendar time has passed that the naturally-accumulating
-# history exceeds this again.
+
 FOLD_MONTHS = 2
 MIN_TRAIN_MONTHS = 8
 

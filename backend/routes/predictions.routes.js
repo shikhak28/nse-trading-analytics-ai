@@ -9,18 +9,34 @@ const predictionService = require("../services/prediction.service");
  */
 router.get("/", async (req, res) => {
   try {
-    const { symbol, exchange, horizon, date, limit, offset } = req.query;
+    const { symbol, exchange, horizon, date, sector, limit, offset } = req.query;
     const predictions = await predictionService.getPredictions({
       symbol: symbol?.trim() || undefined,
       exchange: exchange?.trim() || undefined,
       horizon: horizon?.trim() || undefined,
       date: date?.trim() || undefined,
+      sector: sector?.trim() || undefined,
       limit,
       offset,
     });
     return res.json({ success: true, results: predictions });
   } catch (err) {
     console.error("Predictions fetch error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * Distinct sector names present in companies -- backs the Predictions page's
+ * sector filter dropdown. Registered before "/:id" so "sectors" isn't
+ * swallowed as an :id value.
+ */
+router.get("/sectors", async (req, res) => {
+  try {
+    const sectors = await predictionService.getSectors();
+    return res.json({ success: true, results: sectors });
+  } catch (err) {
+    console.error("Sectors fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 });

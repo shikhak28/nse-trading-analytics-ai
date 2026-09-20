@@ -6,14 +6,20 @@ import axios from "axios";
 const client = axios.create({ baseURL: "", withCredentials: true });
 
 export const predictionsApi = {
-  getPredictions: async ({ horizon, date, symbol, exchange, limit } = {}) => {
+  getPredictions: async ({ horizon, date, symbol, exchange, sector, limit } = {}) => {
     const params = {};
     if (horizon) params.horizon = horizon;
     if (date) params.date = date;
     if (symbol) params.symbol = symbol;
     if (exchange) params.exchange = exchange;
+    if (sector) params.sector = sector;
     if (limit) params.limit = limit;
     const { data } = await client.get("/predictions", { params });
+    return data;
+  },
+
+  getSectors: async () => {
+    const { data } = await client.get("/predictions/sectors");
     return data;
   },
 
