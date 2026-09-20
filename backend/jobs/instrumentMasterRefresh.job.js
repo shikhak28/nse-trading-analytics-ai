@@ -10,7 +10,21 @@ const UPSERT_CHUNK_SIZE = 500;
 // alphanumeric code -- e.g. "656KA30-SG" (a Karnataka state loan) -- a
 // pattern real trading symbols don't share (verified against edge cases
 // like BAJAJ-AUTO, BOSCH-HCIL, 21STCENMGM).
-const DEBT_INSTRUMENT_SYMBOL = /-[A-Z0-9]{2}$/;
+//
+// BUT that same pattern also matches NSE's real equity *series* suffixes
+// (e.g. "MTARTECH-BE" -- Trade-to-Trade segment), which are genuine
+// companies, not debt -- confirmed missing from `companies` for exactly
+// this reason. Known equity series codes are allowlisted below so they
+// aren't caught by the debt filter; anything else matching the pattern is
+// still treated as debt.
+const EQUITY_SERIES_SUFFIXES = new Set(["BE", "BZ", "BL", "SM", "ST", "IL", "GC"]);
+const DEBT_INSTRUMENT_SYMBOL = /-([A-Z0-9]{2})$/;
+
+function isDebtInstrument(tradingsymbol) {
+    const match = tradingsymbol.match(DEBT_INSTRUMENT_SYMBOL);
+    if (!match) return false;
+    return !EQUITY_SERIES_SUFFIXES.has(match[1]);
+}
 
 // BSE's debt symbols don't follow that hyphen convention (e.g. "ABHF090326",
 // "97SFL29") so the regex above doesn't generalize -- but Kite simply leaves
@@ -54,7 +68,7 @@ async function processInstrumentMasterRefresh(job) {
             // -- hardcoding "NSE" here would silently drop every BSE row.
             instrument.segment === exchange &&
             instrument.instrument_type === "EQ" &&
-            !DEBT_INSTRUMENT_SYMBOL.test(instrument.tradingsymbol) &&
+            !isDebtInstrument(instrument.tradingsymbol) &&
             !isInavFeed(instrument) &&
             hasCompanyName(instrument)
         )
