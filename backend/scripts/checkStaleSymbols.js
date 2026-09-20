@@ -29,7 +29,11 @@ const symbols = (process.argv[2] || "")
     }
 
     const instruments = await kite.getInstruments(exchange);
-    const bySymbol = new Map(instruments.map((i) => [i.tradingsymbol.toUpperCase(), i]));
+    // Kite's dump occasionally has a row with no tradingsymbol -- skip those
+    // rather than crashing the whole lookup over one malformed entry.
+    const bySymbol = new Map(
+        instruments.filter((i) => i.tradingsymbol).map((i) => [i.tradingsymbol.toUpperCase(), i])
+    );
 
     const { rows } = await db.query(
         `SELECT symbol, exchange, instrument_token FROM companies WHERE exchange = $1 AND symbol = ANY($2)`,
