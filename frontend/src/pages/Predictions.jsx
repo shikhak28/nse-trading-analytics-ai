@@ -29,6 +29,15 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function matchesSearch(row, search) {
+  if (!search) return true;
+  const needle = search.trim().toLowerCase();
+  return (
+    row.symbol?.toLowerCase().includes(needle) ||
+    row.company_name?.toLowerCase().includes(needle)
+  );
+}
+
 function formatPercent(value) {
   if (value === null || value === undefined) return "—";
   return `${(Number(value) * 100).toFixed(1)}%`;
@@ -162,14 +171,30 @@ function Predictions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [sectors, setSectors] = useState([]);
+  const [sector, setSector] = useState("");
+  const [search, setSearch] = useState("");
+
   const [expectedGain, setExpectedGain] = useState([]);
   const [expectedLoss, setExpectedLoss] = useState([]);
+
+  useEffect(() => {
+    predictionsApi
+      .getSectors()
+      .then((data) => setSectors(data.success ? data.results : []))
+      .catch(() => setSectors([]));
+  }, []);
 
   useEffect(() => {
     const loadPredictions = async () => {
       setLoading(true);
       try {
-        const data = await predictionsApi.getPredictions({ horizon: "next_day", date, limit: 10000 });
+        const data = await predictionsApi.getPredictions({
+          horizon: "next_day",
+          date,
+          sector: sector || undefined,
+          limit: 10000,
+        });
         if (data.success) {
           setPredictions(data.results);
           setError(null);
@@ -202,22 +227,31 @@ function Predictions() {
 
     loadPredictions();
     loadMovers();
-  }, [date]);
+  }, [date, sector]);
 
   const rankedRising = useMemo(
     () =>
       predictions
-        .filter((row) => row.target_label === "p_move_up_2pct")
+        .filter((row) => row.target_label === "p_move_up_2pct" && matchesSearch(row, search))
         .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
-    [predictions]
+    [predictions, search]
   );
 
   const rankedFalling = useMemo(
     () =>
       predictions
-        .filter((row) => row.target_label === "p_move_down_2pct")
+        .filter((row) => row.target_label === "p_move_down_2pct" && matchesSearch(row, search))
         .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
-    [predictions]
+    [predictions, search]
+  );
+
+  const filteredExpectedGain = useMemo(
+    () => expectedGain.filter((row) => matchesSearch(row, search)),
+    [expectedGain, search]
+  );
+  const filteredExpectedLoss = useMemo(
+    () => expectedLoss.filter((row) => matchesSearch(row, search)),
+    [expectedLoss, search]
   );
 
   return (
@@ -255,6 +289,27 @@ function Predictions() {
               Confidence Tiers
             </button>
           </div>
+
+          <select
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value="">All Sectors</option>
+            {sectors.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search symbol or company..."
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm w-56"
+          />
 
           <input
             type="date"
@@ -312,13 +367,13 @@ function Predictions() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PredictionList
                 title="Expected Gainers"
-                rows={expectedGain}
+                rows={filteredExpectedGain}
                 arrow="▲"
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               />
               <PredictionList
                 title="Expected Losers"
-                rows={expectedLoss}
+                rows={filteredExpectedLoss}
                 arrow="▼"
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
