@@ -48,8 +48,10 @@ function buildTickPayload(tick, symbol) {
         depth: tick.depth ?? null,
         total_buy_quantity: tick.total_buy_quantity ?? null,
         total_sell_quantity: tick.total_sell_quantity ?? null,
-        upper_circuit_limit: tick.upper_circuit_limit ?? null,
-        lower_circuit_limit: tick.lower_circuit_limit ?? null,
+        // Circuit limits are deliberately NOT set here -- ticks never carry
+        // them (see CIRCUIT_LIMIT_REFRESH_INTERVAL_MS comment above), and
+        // writing null on every tick would clobber the values
+        // refreshCircuitLimits() maintains separately in the same hash.
         // Kite's own tick timestamp (when the exchange generated it), not
         // when our server received it -- exchange_timestamp is only present
         // in full mode; last_trade_time is the next-best Kite-provided time.

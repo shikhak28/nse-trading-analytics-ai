@@ -33,9 +33,14 @@ app.use("/agent", agentRoutes);
 app.use("/portfolio", portfolioRoutes);
 app.use("/gtt", gttRoutes);
 app.use("/orders", ordersRoutes);
-app.use("/predictions", predictionsRoutes);
-app.use("/verification", verificationRoutes);
-app.use("/accuracy", accuracyRoutes);
+// Mounted under /api/* specifically (unlike /market, /gtt, etc.) because
+// the frontend also has React Router pages at these exact bare paths
+// (/predictions, /verification, /accuracy) -- without the prefix, a hard
+// navigation/refresh on those pages hit this API instead of the SPA shell,
+// since nginx can't tell "page load" apart from "API call" at the same URL.
+app.use("/api/predictions", predictionsRoutes);
+app.use("/api/verification", verificationRoutes);
+app.use("/api/accuracy", accuracyRoutes);
 app.use("/model", modelRoutes);
 app.use("/ranking", rankingRoutes);
 

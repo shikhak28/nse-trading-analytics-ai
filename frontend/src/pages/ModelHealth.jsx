@@ -38,13 +38,15 @@ const STATUS_BADGE = {
 function ModelCard({ model }) {
   const backtest = model.metrics?.backtest || {};
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">{TARGET_LABEL_NAMES[model.target_label] || model.target_label}</div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">{model.horizon} · {model.version_tag}</div>
+    <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5 overflow-hidden">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">{TARGET_LABEL_NAMES[model.target_label] || model.target_label}</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={model.version_tag}>
+            {model.horizon} · {model.version_tag}
+          </div>
         </div>
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE[model.status] || STATUS_BADGE.shadow}`}>
+        <span className={`flex-shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_BADGE[model.status] || STATUS_BADGE.shadow}`}>
           {model.status}
         </span>
       </div>
