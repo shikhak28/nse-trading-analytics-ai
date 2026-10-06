@@ -14,12 +14,12 @@ export const predictionsApi = {
     if (exchange) params.exchange = exchange;
     if (sector) params.sector = sector;
     if (limit) params.limit = limit;
-    const { data } = await client.get("/predictions", { params });
+    const { data } = await client.get("/api/predictions", { params });
     return data;
   },
 
   getSectors: async () => {
-    const { data } = await client.get("/predictions/sectors");
+    const { data } = await client.get("/api/predictions/sectors");
     return data;
   },
 
@@ -40,7 +40,7 @@ export const predictionsApi = {
     if (to) params.to = to;
     if (limit) params.limit = limit;
     if (offset) params.offset = offset;
-    const { data } = await client.get("/verification", { params });
+    const { data } = await client.get("/api/verification", { params });
     return data;
   },
 
@@ -49,7 +49,7 @@ export const predictionsApi = {
     if (groupBy) params.groupBy = groupBy;
     if (horizon) params.horizon = horizon;
     if (targetLabel) params.targetLabel = targetLabel;
-    const { data } = await client.get("/accuracy", { params });
+    const { data } = await client.get("/api/accuracy", { params });
     return data;
   },
 

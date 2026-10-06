@@ -66,8 +66,10 @@ async function getVerification({ symbol, exchange, checkpoint, from, to, limit =
   const values = [];
 
   if (symbol) {
-    values.push(symbol);
-    conditions.push(`p.symbol = $${values.length}`);
+    // Partial, case-insensitive match -- this is a search box, not an
+    // exact-symbol lookup, so "reliance" or "rel" should find "RELIANCE".
+    values.push(`%${symbol}%`);
+    conditions.push(`p.symbol ILIKE $${values.length}`);
   }
   if (exchange) {
     values.push(exchange);
