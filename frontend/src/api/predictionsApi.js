@@ -30,4 +30,40 @@ export const predictionsApi = {
     const { data } = await client.get("/ranking", { params });
     return data;
   },
+
+  getVerification: async ({ symbol, exchange, checkpoint, from, to, limit, offset } = {}) => {
+    const params = {};
+    if (symbol) params.symbol = symbol;
+    if (exchange) params.exchange = exchange;
+    if (checkpoint) params.checkpoint = checkpoint;
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (limit) params.limit = limit;
+    if (offset) params.offset = offset;
+    const { data } = await client.get("/verification", { params });
+    return data;
+  },
+
+  getAccuracy: async ({ groupBy, horizon, targetLabel } = {}) => {
+    const params = {};
+    if (groupBy) params.groupBy = groupBy;
+    if (horizon) params.horizon = horizon;
+    if (targetLabel) params.targetLabel = targetLabel;
+    const { data } = await client.get("/accuracy", { params });
+    return data;
+  },
+
+  getCurrentModel: async (horizon) => {
+    const params = {};
+    if (horizon) params.horizon = horizon;
+    const { data } = await client.get("/model", { params });
+    return data;
+  },
+
+  getModelVersions: async (horizon) => {
+    const params = {};
+    if (horizon) params.horizon = horizon;
+    const { data } = await client.get("/model/versions", { params });
+    return data;
+  },
 };

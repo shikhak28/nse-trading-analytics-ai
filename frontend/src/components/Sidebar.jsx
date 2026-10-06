@@ -12,6 +12,9 @@ function Sidebar() {
           { to: '/agent', label: 'AI Agent' },
           { to: '/history', label: 'History' },
           { to: '/predictions', label: 'Predictions' },
+          { to: '/verification', label: 'Verification' },
+          { to: '/accuracy', label: 'Accuracy' },
+          { to: '/model-health', label: 'Model Health' },
         ].map((item) => (
           <NavLink
             key={item.to}
