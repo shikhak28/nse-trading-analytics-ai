@@ -141,6 +141,66 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
   return result.rows;
 }
 
+const CLASSIFICATION_TARGETS = new Set(["p_move_up_2pct", "p_move_down_2pct"]);
+
+// Calibration + confusion matrix for a binary target, over every verified
+// prediction. Calibration bins are quantile bins (ntile) rather than equal-
+// width ones: predicted probabilities here cluster in 0-30%, so equal-width
+// bins would cram nearly everything into the first one or two.
+async function getClassificationMetrics({ horizon = "next_day", targetLabel, bins = 10, threshold = 0.1 } = {}) {
+  if (!CLASSIFICATION_TARGETS.has(targetLabel)) {
+    throw new Error(`targetLabel must be one of: ${[...CLASSIFICATION_TARGETS].join(", ")}`);
+  }
+  const binCount = Math.min(Math.max(parseInt(bins, 10) || 10, 2), 20);
+  const cutoff = Math.min(Math.max(Number(threshold) || 0.1, 0), 1);
+
+  const verified = `
+    SELECT p.predicted_value::float8 AS prob, v.actual_value::float8 AS actual
+    FROM prediction_verification v
+    JOIN predictions p ON p.id = v.prediction_id AND p.predicted_at = v.prediction_predicted_at
+    WHERE p.horizon = $1 AND p.target_label = $2`;
+
+  const [binsResult, summaryResult] = await Promise.all([
+    db.query(
+      `SELECT bin::int,
+              count(*)::int AS n,
+              avg(prob) AS mean_predicted,
+              avg(actual) AS observed_rate,
+              min(prob) AS min_predicted,
+              max(prob) AS max_predicted
+       FROM (SELECT prob, actual, ntile($3) OVER (ORDER BY prob) AS bin FROM (${verified}) t) b
+       GROUP BY bin
+       ORDER BY bin`,
+      [horizon, targetLabel, binCount]
+    ),
+    db.query(
+      `SELECT count(*)::int AS n,
+              avg(actual) AS base_rate,
+              avg(power(prob - actual, 2)) AS brier,
+              count(*) FILTER (WHERE prob >= $3 AND actual = 1)::int AS tp,
+              count(*) FILTER (WHERE prob >= $3 AND actual = 0)::int AS fp,
+              count(*) FILTER (WHERE prob <  $3 AND actual = 1)::int AS fn,
+              count(*) FILTER (WHERE prob <  $3 AND actual = 0)::int AS tn
+       FROM (${verified}) t`,
+      [horizon, targetLabel, cutoff]
+    ),
+  ]);
+
+  const summary = summaryResult.rows[0];
+  const { tp, fp, fn } = summary;
+  return {
+    horizon,
+    targetLabel,
+    threshold: cutoff,
+    bins: binsResult.rows,
+    summary: {
+      ...summary,
+      precision: tp + fp ? tp / (tp + fp) : null,
+      recall: tp + fn ? tp / (tp + fn) : null,
+    },
+  };
+}
+
 async function getCurrentModel(horizon) {
   const conditions = ["status = 'production'"];
   const values = [];
@@ -210,6 +270,7 @@ async function getRankings({ date, category } = {}) {
 }
 
 module.exports = {
+  getClassificationMetrics,
   getPredictions,
   getPredictionById,
   getVerification,
