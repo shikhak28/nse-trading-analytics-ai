@@ -53,6 +53,16 @@ export const predictionsApi = {
     return data;
   },
 
+  getClassificationMetrics: async ({ horizon, targetLabel, bins, threshold } = {}) => {
+    const params = {};
+    if (horizon) params.horizon = horizon;
+    if (targetLabel) params.targetLabel = targetLabel;
+    if (bins) params.bins = bins;
+    if (threshold !== undefined) params.threshold = threshold;
+    const { data } = await client.get("/api/accuracy/classification", { params });
+    return data;
+  },
+
   getCurrentModel: async (horizon) => {
     const params = {};
     if (horizon) params.horizon = horizon;

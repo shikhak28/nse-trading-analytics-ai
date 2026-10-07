@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
+import nseHolidays from "../../../shared/nse_holidays.json";
 
 const PAGE_SIZE = 20;
 const TIER_PAGE_SIZE = 10;
@@ -25,8 +26,47 @@ const CONFIDENCE_TIERS = [
   { label: "30%+", min: 0.30, max: Infinity },
 ];
 
+// Local (not UTC) YYYY-MM-DD -- toISOString() would roll back to the
+// previous day in IST before 5:30 AM.
+function toIsoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return toIsoDate(new Date());
+}
+
+// Same holiday list the cron's trading_calendar.py guard reads.
+const NSE_HOLIDAYS = new Set(
+  Object.entries(nseHolidays)
+    .filter(([key]) => !key.startsWith("_"))
+    .flatMap(([, days]) => days)
+);
+
+function isTradingDay(d) {
+  return d.getDay() !== 0 && d.getDay() !== 6 && !NSE_HOLIDAYS.has(toIsoDate(d));
+}
+
+// The date picker is the trading day being *predicted*; predict.py runs at
+// 6 PM on the previous trading day, so that's the predicted_at date to query.
+// Skips weekends and NSE holidays (e.g. Monday -> Friday).
+function previousTradingDay(isoDate) {
+  const d = new Date(`${isoDate}T00:00:00`);
+  do {
+    d.setDate(d.getDate() - 1);
+  } while (!isTradingDay(d));
+  return toIsoDate(d);
+}
+
+function formatDay(isoDate) {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function matchesSearch(row, search) {
@@ -178,6 +218,8 @@ function Predictions() {
   const [expectedGain, setExpectedGain] = useState([]);
   const [expectedLoss, setExpectedLoss] = useState([]);
 
+  const madeOn = previousTradingDay(date);
+
   useEffect(() => {
     predictionsApi
       .getSectors()
@@ -191,7 +233,7 @@ function Predictions() {
       try {
         const data = await predictionsApi.getPredictions({
           horizon: "next_day",
-          date,
+          date: madeOn,
           sector: sector || undefined,
           limit: 10000,
         });
@@ -211,8 +253,8 @@ function Predictions() {
     const loadMovers = async () => {
       try {
         const [gain, loss] = await Promise.all([
-          predictionsApi.getRankings({ date, category: "top_expected_gain" }),
-          predictionsApi.getRankings({ date, category: "top_expected_loss" }),
+          predictionsApi.getRankings({ date: madeOn, category: "top_expected_gain" }),
+          predictionsApi.getRankings({ date: madeOn, category: "top_expected_loss" }),
         ]);
         setExpectedGain(gain.success ? gain.results : []);
         setExpectedLoss(loss.success ? loss.results : []);
@@ -227,7 +269,7 @@ function Predictions() {
 
     loadPredictions();
     loadMovers();
-  }, [date, sector]);
+  }, [madeOn, sector]);
 
   const rankedRising = useMemo(
     () =>
@@ -260,7 +302,13 @@ function Predictions() {
         <div>
           <h1 className="text-3xl font-semibold">Predictions</h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Companies most likely to move ≥2% tomorrow, by model probability.
+            Companies most likely to move ≥2% on <span className="font-medium text-slate-700 dark:text-slate-200">{formatDay(date)}</span>,
+            by model probability (predicted after market close on {formatDay(madeOn)}).
+            {!isTradingDay(new Date(`${date}T00:00:00`)) && (
+              <span className="ml-1 text-amber-600 dark:text-amber-400">
+                {formatDay(date)} is a market holiday -- no trading that day.
+              </span>
+            )}
           </p>
         </div>
 
@@ -311,12 +359,15 @@ function Predictions() {
             className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm w-56"
           />
 
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
-          />
+          <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            Predictions for
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+              className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm text-slate-900 dark:text-slate-100"
+            />
+          </label>
         </div>
       </div>
 
