@@ -15,10 +15,20 @@ Usage:
     python verify.py
 """
 
+import pandas as pd
+
 import db
 
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
 MOVE_THRESHOLD = 0.02
+CANDLE_DATE_OFFSET = pd.Timedelta(hours=6)
+
+
+def trading_date(candle_timestamp):
+    """Daily candles are stored at 00:00 or at 18:30 of the previous day,
+    depending on the timezone of the process that synced them. Adding 6 hours
+    lands both on the real trading date."""
+    return (candle_timestamp + CANDLE_DATE_OFFSET).date()
 
 
 def fetch_next_two_candles(exchange, symbol, reference_date):
@@ -27,11 +37,12 @@ def fetch_next_two_candles(exchange, symbol, reference_date):
         SELECT candle_timestamp, open, close
         FROM historical_prices
         WHERE exchange = %s AND symbol = %s AND interval = 'day'
-          AND candle_timestamp::date >= %s
+          AND candle_timestamp >= %s::date - INTERVAL '1 day'
+          AND (candle_timestamp + INTERVAL '6 hours')::date >= %s
         ORDER BY candle_timestamp ASC
         LIMIT 2
         """,
-        (exchange, symbol, reference_date),
+        (exchange, symbol, reference_date, reference_date),
     )
 
 
@@ -42,8 +53,7 @@ def verify_row(pred):
         return None
 
     same_day = candles.iloc[0]
-    same_day_date = same_day["candle_timestamp"].date()
-    if same_day_date != reference_date:
+    if trading_date(same_day["candle_timestamp"]) != reference_date:
         return None
 
     if pred["horizon"] == "eod":

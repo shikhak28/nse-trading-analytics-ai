@@ -19,7 +19,9 @@ async function computeRankedMetrics(date) {
             SELECT
                 hp.exchange,
                 hp.symbol,
-                hp.candle_timestamp::date AS d,
+                -- Daily candles are stored at 00:00 or 18:30 of the previous
+                -- day; adding 6 hours lands both on the real trading date.
+                (hp.candle_timestamp + INTERVAL '6 hours')::date AS d,
                 hp.close,
                 hp.volume,
                 LAG(hp.close) OVER (PARTITION BY hp.exchange, hp.symbol ORDER BY hp.candle_timestamp) AS prev_close
