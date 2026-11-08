@@ -12,6 +12,7 @@ import Trading from "./pages/Trading";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Predictions from "./pages/Predictions";
+import PriceGroupPredictions from "./pages/PriceGroupPredictions";
 import Verification from "./pages/Verification";
 import Accuracy from "./pages/Accuracy";
 import ModelHealth from "./pages/ModelHealth";
@@ -27,6 +28,7 @@ function AuthenticatedRoutes() {
         <Route path="/history" element={<History />} />
         <Route path="/history/:symbol" element={<History />} />
         <Route path="/predictions" element={<Predictions />} />
+        <Route path="/price-groups" element={<PriceGroupPredictions />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />

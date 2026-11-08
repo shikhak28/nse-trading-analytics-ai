@@ -12,6 +12,7 @@ function Sidebar() {
           { to: '/agent', label: 'AI Agent' },
           { to: '/history', label: 'History' },
           { to: '/predictions', label: 'Predictions' },
+          { to: '/price-groups', label: 'Price Groups' },
           { to: '/verification', label: 'Verification' },
           { to: '/accuracy', label: 'Accuracy' },
           { to: '/model-health', label: 'Model Health' },

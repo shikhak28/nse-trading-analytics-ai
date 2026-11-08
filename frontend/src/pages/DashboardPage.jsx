@@ -6,6 +6,7 @@ import { CompanyRow, CompanyRowHeader } from "../components/CompanyRow";
 import { CompanyDetailModal } from "../components/CompanyDetailModal";
 import { SyncSymbolPanel } from "../components/SyncSymbolPanel";
 import { useLiveQuotes } from "../hooks/useLiveQuotes";
+import { PRICE_BANDS, matchesBand } from "../utils/priceBands";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 50;
@@ -22,22 +23,7 @@ const FILTERS = [
   { value: "circuit_lower", label: "Lower Circuit" },
 ];
 
-// Sections by last daily close (₹). min is inclusive, max exclusive. A stock
-// with no recent close has no known section, so it only appears under All.
-const PRICE_BANDS = [
-  { value: "penny", label: "Penny", range: "under ₹500", min: 0, max: 500 },
-  { value: "mid", label: "Mid", range: "₹500–5,000", min: 500, max: 5000 },
-  { value: "upper", label: "Upper", range: "₹5,000–10,000", min: 5000, max: 10000 },
-  { value: "high_risk", label: "High Risk", range: "₹10,000+", min: 10000, max: Infinity },
-];
-
 const NON_RANKED_FILTERS = ["all", "range", "circuit_upper", "circuit_lower", ...PRICE_BANDS.map((band) => band.value)];
-
-function matchesBand(company, band) {
-  if (company.last_close === null || company.last_close === undefined) return false;
-  const price = Number(company.last_close);
-  return price >= band.min && price < band.max;
-}
 
 function matchesSearch(company, search) {
   const needle = search.trim().toLowerCase();
