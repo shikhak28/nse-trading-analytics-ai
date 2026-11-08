@@ -45,6 +45,19 @@ function isInavFeed(instrument) {
     return INAV_SYMBOL.test(instrument.tradingsymbol);
 }
 
+function isRealEquity(instrument, exchange) {
+    return (
+        // Kite tags an instrument's segment to match the exchange it was
+        // requested for (NSE instruments -> segment "NSE", BSE -> "BSE")
+        // -- hardcoding "NSE" here would silently drop every BSE row.
+        instrument.segment === exchange &&
+        instrument.instrument_type === "EQ" &&
+        !isDebtInstrument(instrument.tradingsymbol) &&
+        !isInavFeed(instrument) &&
+        hasCompanyName(instrument)
+    );
+}
+
 /**
  * Refreshes the companies table from Kite's instrument dump for a given
  * exchange. Filtered to plain equities (instrument_type EQ) -- the raw dump
@@ -62,16 +75,7 @@ async function processInstrumentMasterRefresh(job) {
 
     const instruments = await kite.getInstruments(exchange);
     const companies = (Array.isArray(instruments) ? instruments : [])
-        .filter((instrument) =>
-            // Kite tags an instrument's segment to match the exchange it was
-            // requested for (NSE instruments -> segment "NSE", BSE -> "BSE")
-            // -- hardcoding "NSE" here would silently drop every BSE row.
-            instrument.segment === exchange &&
-            instrument.instrument_type === "EQ" &&
-            !isDebtInstrument(instrument.tradingsymbol) &&
-            !isInavFeed(instrument) &&
-            hasCompanyName(instrument)
-        )
+        .filter((instrument) => isRealEquity(instrument, exchange))
         .map((instrument) => ({
             symbol: instrument.tradingsymbol.toUpperCase(),
             company_name: instrument.name,
@@ -89,4 +93,4 @@ async function processInstrumentMasterRefresh(job) {
     return { count: companies.length, exchange };
 }
 
-module.exports = { processInstrumentMasterRefresh };
+module.exports = { processInstrumentMasterRefresh, isRealEquity };

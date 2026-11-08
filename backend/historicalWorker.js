@@ -12,6 +12,7 @@ const { processHistoricalSync } = require("./jobs/historicalSync.job");
 const { processDailyEodSync } = require("./jobs/dailyEodSync.job");
 const { processInstrumentMasterRefresh } = require("./jobs/instrumentMasterRefresh.job");
 const { processDailyMoversSnapshot } = require("./jobs/dailyMoversSnapshot.job");
+const { processStockQualityCheck } = require("./jobs/stockQualityCheck.job");
 
 // Kite's historical-data endpoint has a low rate limit; keep this
 // conservative regardless of how many symbols are queued at once.
@@ -32,6 +33,9 @@ const historicalSchedulerWorker = new Worker(
         }
         if (job.name === "daily-movers-snapshot") {
             return processDailyMoversSnapshot();
+        }
+        if (job.name === "stock-quality-check") {
+            return processStockQualityCheck();
         }
         throw new Error(`Unknown historical-scheduler job: ${job.name}`);
     },
@@ -74,7 +78,15 @@ async function registerSchedules() {
         { repeat: { pattern: "0 0 7 * * *", tz: "Asia/Kolkata" }, jobId: "daily-movers-snapshot" }
     );
 
-    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE), daily-movers-snapshot.");
+    // 5:30 PM IST, weekdays -- a trading day, so the day's Zerodha login is
+    // still valid (it expires overnight), and after the EOD sync has started.
+    await historicalSchedulerQueue.add(
+        "stock-quality-check",
+        {},
+        { repeat: { pattern: "0 30 17 * * 1-5", tz: "Asia/Kolkata" }, jobId: "stock-quality-check" }
+    );
+
+    console.log("Registered recurring schedules: daily-eod-sync, instrument-master-refresh (NSE), daily-movers-snapshot, stock-quality-check.");
 
 }
 

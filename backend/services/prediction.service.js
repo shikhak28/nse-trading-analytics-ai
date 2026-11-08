@@ -35,7 +35,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
             p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
             c.company_name, c.sector, lc.last_close
      FROM predictions p
-     JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol
+     JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol AND c.excluded_reason IS NULL
      -- Close as of when the prediction was made, so an old date is grouped by
      -- its price back then. The 15-day floor limits the scan to the one or two
      -- monthly partitions involved and treats a long-halted stock as unpriced.

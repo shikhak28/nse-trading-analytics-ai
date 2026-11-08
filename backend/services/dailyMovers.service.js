@@ -31,7 +31,7 @@ async function computeRankedMetrics(date) {
         SELECT dc.exchange, dc.symbol, c.company_name, dc.close, dc.prev_close, dc.volume,
                CASE WHEN dc.prev_close > 0 THEN ((dc.close - dc.prev_close) / dc.prev_close) * 100 END AS change_percent
         FROM day_candles dc
-        JOIN companies c ON c.exchange = dc.exchange AND c.symbol = dc.symbol
+        JOIN companies c ON c.exchange = dc.exchange AND c.symbol = dc.symbol AND c.excluded_reason IS NULL
         WHERE dc.d = $1::date
         `,
         [date]

@@ -109,7 +109,7 @@ async function saveHistoricalPrices(symbol, interval, candles, instrumentToken =
  */
 async function getCompanies({ search, exchange, limit = 5000, offset = 0 } = {}) {
   const values = [];
-  const conditions = [];
+  const conditions = ["c.excluded_reason IS NULL"];
 
   if (search) {
     values.push(`%${search}%`);
@@ -121,7 +121,7 @@ async function getCompanies({ search, exchange, limit = 5000, offset = 0 } = {})
     conditions.push(`c.exchange = $${values.length}`);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = `WHERE ${conditions.join(" AND ")}`;
 
   values.push(limit, offset);
   const limitIndex = values.length - 1;
@@ -218,13 +218,14 @@ async function getStoredHistoricalPrices(symbol, interval = "day", from, to, exc
 
 async function getStoredHistoricalSummary(limit = 50) {
   const result = await db.query(`
-    SELECT exchange,
-           symbol,
-           interval,
+    SELECT hp.exchange,
+           hp.symbol,
+           hp.interval,
            COUNT(*) AS count,
-           MIN(candle_timestamp) AS first_candle,
-           MAX(candle_timestamp) AS last_candle
-    FROM historical_prices
+           MIN(hp.candle_timestamp) AS first_candle,
+           MAX(hp.candle_timestamp) AS last_candle
+    FROM historical_prices hp
+    JOIN companies c ON c.exchange = hp.exchange AND c.symbol = hp.symbol AND c.excluded_reason IS NULL
     -- Same partition-pruning lesson as getCompanies' LATERAL join: with no
     -- time bound, this GROUP BY has to sequentially scan every monthly
     -- partition (all ~58M rows) just to find the 50 most-recently-synced
@@ -233,8 +234,8 @@ async function getStoredHistoricalSummary(limit = 50) {
     -- bounding this makes it fast again -- count/first_candle end up scoped
     -- to the window too, which is fine for this "recently synced" display
     -- (it's not used anywhere as an exact lifetime total).
-    WHERE candle_timestamp >= (NOW() - INTERVAL '2 months')
-    GROUP BY exchange, symbol, interval
+    WHERE hp.candle_timestamp >= (NOW() - INTERVAL '2 months')
+    GROUP BY hp.exchange, hp.symbol, hp.interval
     ORDER BY last_candle DESC
     LIMIT $1
   `, [limit]);
