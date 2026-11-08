@@ -22,6 +22,39 @@ const FILTERS = [
   { value: "circuit_lower", label: "Lower Circuit" },
 ];
 
+// Sections by last daily close (₹). min is inclusive, max exclusive. A stock
+// with no recent close has no known section, so it only appears under All.
+const PRICE_BANDS = [
+  { value: "penny", label: "Penny", range: "under ₹500", min: 0, max: 500 },
+  { value: "mid", label: "Mid", range: "₹500–5,000", min: 500, max: 5000 },
+  { value: "upper", label: "Upper", range: "₹5,000–10,000", min: 5000, max: 10000 },
+  { value: "high_risk", label: "High Risk", range: "₹10,000+", min: 10000, max: Infinity },
+];
+
+const NON_RANKED_FILTERS = ["all", "range", "circuit_upper", "circuit_lower", ...PRICE_BANDS.map((band) => band.value)];
+
+function matchesBand(company, band) {
+  if (company.last_close === null || company.last_close === undefined) return false;
+  const price = Number(company.last_close);
+  return price >= band.min && price < band.max;
+}
+
+function matchesSearch(company, search) {
+  const needle = search.trim().toLowerCase();
+  return (
+    !needle ||
+    company.symbol?.toLowerCase().includes(needle) ||
+    company.company_name?.toLowerCase().includes(needle)
+  );
+}
+
+const filterChipClass = (active) =>
+  `rounded-full px-4 py-2 text-xs font-medium transition border ${
+    active
+      ? "bg-blue-600 border-blue-600 text-white"
+      : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400"
+  }`;
+
 const formatDateTime = (value) => (value ? new Date(value).toLocaleString("en-IN") : "Never");
 
 const DashboardPage = () => {
@@ -35,7 +68,9 @@ const DashboardPage = () => {
   const [companies, setCompanies] = useState([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [companiesError, setCompaniesError] = useState(null);
-  const [totalCompanies, setTotalCompanies] = useState(0);
+  const [allCompanies, setAllCompanies] = useState([]);
+  const [allCompaniesLoading, setAllCompaniesLoading] = useState(true);
+  const [allCompaniesError, setAllCompaniesError] = useState(null);
   const [visibleRange, setVisibleRange] = useState({ startIndex: 0, stopIndex: 15 });
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedDay, setSelectedDay] = useState("today");
@@ -44,12 +79,32 @@ const DashboardPage = () => {
   const [syncLatestMessage, setSyncLatestMessage] = useState(null);
   const [syncLatestError, setSyncLatestError] = useState(null);
 
+  const activeBand = PRICE_BANDS.find((band) => band.value === filter);
+
+  const displayedCompanies = useMemo(
+    () =>
+      activeBand
+        ? allCompanies.filter((company) => matchesBand(company, activeBand) && matchesSearch(company, search))
+        : companies,
+    [activeBand, allCompanies, companies, search]
+  );
+  const listLoading = activeBand ? allCompaniesLoading : companiesLoading;
+  const listError = activeBand ? allCompaniesError : companiesError;
+
+  const bandCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        PRICE_BANDS.map((band) => [band.value, allCompanies.filter((company) => matchesBand(company, band)).length])
+      ),
+    [allCompanies]
+  );
+
   // Only subscribe to live ticks for rows actually scrolled into view --
   // not all 2000+ fetched companies -- so the backend only asks Kite to
   // stream symbols someone is actually looking at.
   const visibleSymbols = useMemo(
-    () => companies.slice(visibleRange.startIndex, visibleRange.stopIndex + 1).map((company) => company.symbol),
-    [companies, visibleRange]
+    () => displayedCompanies.slice(visibleRange.startIndex, visibleRange.stopIndex + 1).map((company) => company.symbol),
+    [displayedCompanies, visibleRange]
   );
   const liveQuotes = useLiveQuotes(visibleSymbols);
 
@@ -68,21 +123,27 @@ const DashboardPage = () => {
     loadSummary();
   }, []);
 
-  // One-off, unpaginated count for the "COMPANIES TRACKED" stat card --
-  // decoupled from the paginated listing below so paging doesn't move it.
+  // One-off, unpaginated list behind the "COMPANIES TRACKED" stat card and the
+  // price sections -- decoupled from the paginated listing below so paging
+  // doesn't move either.
   useEffect(() => {
-    const loadTotalCount = async () => {
+    const loadAllCompanies = async () => {
       try {
-        const data = await marketApi.getCompanies({ limit: 5000 });
+        const data = await marketApi.getCompanies({ limit: 10000 });
         if (data.success) {
-          setTotalCompanies(data.results.length);
+          setAllCompanies(data.results);
+        } else {
+          setAllCompaniesError(data.message || "Unable to load companies.");
         }
       } catch (err) {
-        console.error("Failed to load company count", err);
+        console.error("Failed to load companies", err);
+        setAllCompaniesError(err.message || "Unable to load companies.");
+      } finally {
+        setAllCompaniesLoading(false);
       }
     };
 
-    loadTotalCount();
+    loadAllCompanies();
   }, []);
 
   // Dates that have a stored daily-movers snapshot -- backs the day-filter
@@ -134,7 +195,7 @@ const DashboardPage = () => {
   // backend/services/movers.service.js) or, for a past day, by the persisted
   // snapshot a nightly job stores (see backend/services/dailyMovers.service.js).
   useEffect(() => {
-    if (["all", "range", "circuit_upper", "circuit_lower"].includes(filter)) return;
+    if (NON_RANKED_FILTERS.includes(filter)) return;
     let ignore = false;
 
     const load = async () => {
@@ -268,12 +329,12 @@ const DashboardPage = () => {
     setSelectedDay("today");
   };
 
-  const isTopXFilter = !["all", "range", "circuit_upper", "circuit_lower"].includes(filter);
+  const isTopXFilter = !NON_RANKED_FILTERS.includes(filter);
 
   const lastSyncedAt = useMemo(() => historySummary[0]?.last_candle, [historySummary]);
 
   const stats = [
-    { label: "COMPANIES TRACKED", value: totalCompanies.toLocaleString("en-IN") },
+    { label: "COMPANIES TRACKED", value: allCompanies.length.toLocaleString("en-IN") },
     { label: "SYMBOLS WITH HISTORY", value: historySummary.length.toLocaleString("en-IN") },
     { label: "LAST SYNC", value: lastSyncedAt ? lastSyncedAt.slice(0, 10) : "Never" },
     { label: "ZERODHA STATUS", value: isAuthenticated ? "Connected" : "Disconnected" },
@@ -319,28 +380,30 @@ const DashboardPage = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Companies</h2>
             <span className="text-slate-500 dark:text-slate-400 text-[12px]">
-              {companiesLoading ? "Loading..." : `${companies.length.toLocaleString("en-IN")} shown`}
+              {listLoading ? "Loading..." : `${displayedCompanies.length.toLocaleString("en-IN")} shown`}
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {FILTERS.map((item) => (
-              <button
-                key={item.value}
-                onClick={() => selectFilter(item.value)}
-                className={`rounded-full px-4 py-2 text-xs font-medium transition border ${
-                  filter === item.value
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-400"
-                }`}
-              >
+              <button key={item.value} onClick={() => selectFilter(item.value)} className={filterChipClass(filter === item.value)}>
                 {item.label}
               </button>
             ))}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Price</span>
+            {PRICE_BANDS.map((band) => (
+              <button key={band.value} onClick={() => selectFilter(band.value)} className={filterChipClass(filter === band.value)}>
+                {band.label} <span className="opacity-75">{band.range}</span>{" "}
+                <span className="opacity-75">({bandCounts[band.value].toLocaleString("en-IN")})</span>
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            {filter === "all" && (
+            {(filter === "all" || activeBand) && (
               <input
                 value={search}
                 onChange={(event) => {
@@ -391,20 +454,20 @@ const DashboardPage = () => {
           </div>
 
           <CompanyRowHeader />
-          {companiesError ? (
-            <div className="py-10 text-center text-red-600 dark:text-red-400 text-sm">{companiesError}</div>
-          ) : companies.length === 0 && !companiesLoading ? (
+          {listError ? (
+            <div className="py-10 text-center text-red-600 dark:text-red-400 text-sm">{listError}</div>
+          ) : displayedCompanies.length === 0 && !listLoading ? (
             <div className="py-10 text-center text-slate-500 dark:text-slate-400 text-sm">
-              {filter === "all"
+              {filter === "all" || activeBand
                 ? "No companies match your search."
                 : "No live data available for this filter yet (market may be closed)."}
             </div>
           ) : (
             <List
               rowComponent={CompanyRow}
-              rowCount={companies.length}
+              rowCount={displayedCompanies.length}
               rowHeight={56}
-              rowProps={{ companies, quotes: liveQuotes, onRowClick: setSelectedCompany }}
+              rowProps={{ companies: displayedCompanies, quotes: liveQuotes, onRowClick: setSelectedCompany }}
               onRowsRendered={(visibleRows) =>
                 setVisibleRange((prev) =>
                   prev.startIndex === visibleRows.startIndex && prev.stopIndex === visibleRows.stopIndex
