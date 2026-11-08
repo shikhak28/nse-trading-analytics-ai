@@ -17,6 +17,51 @@ def information_coefficient(y_true, y_pred):
     return ic
 
 
+LIQUIDITY_TIERS = [
+    ("under Rs 2 crore/day", 0, 2e7),
+    ("Rs 2-20 crore/day", 2e7, 2e8),
+    ("Rs 20 crore+/day", 2e8, np.inf),
+]
+ROUND_TRIP_COST = 0.003  # assumption: NSE delivery STT + charges + slippage
+MIN_STOCKS_PER_DAY = 10
+
+
+def _liquidity_row(df):
+    days = [group for _, group in df.groupby("date") if len(group) >= MIN_STOCKS_PER_DAY]
+    if not days:
+        return {"rows": len(df), "days": 0}
+
+    daily_ics, top_returns, average_returns = [], [], []
+    for group in days:
+        daily_ics.append(information_coefficient(group["y"], group["score"]))
+        cutoff = group["score"].quantile(0.9)
+        top_returns.append(group.loc[group["score"] >= cutoff, "ret"].mean())
+        average_returns.append(group["ret"].mean())
+
+    top, average = float(np.mean(top_returns)), float(np.mean(average_returns))
+    return {
+        "rows": len(df),
+        "days": len(days),
+        "mean_daily_ic": float(np.nanmean(daily_ics)),
+        "top_decile_return": top,
+        "average_return": average,
+        "top_minus_average": top - average,
+        "top_after_cost": top - ROUND_TRIP_COST,
+    }
+
+
+def liquidity_report(dates, y_true, y_pred, returns, traded_value):
+    """Daily IC and top-decile return for all stocks and per liquidity tier.
+    A signal that only exists where almost nothing trades can't be captured.
+    traded_value must be known on the prediction date, so tiers can't peek.
+    """
+    df = pd.DataFrame({"date": dates, "y": y_true, "score": y_pred, "ret": returns, "traded_value": traded_value})
+    report = {"all stocks": _liquidity_row(df)}
+    for name, low, high in LIQUIDITY_TIERS:
+        report[name] = _liquidity_row(df[(df["traded_value"] >= low) & (df["traded_value"] < high)])
+    return report
+
+
 def brier_score(y_true, y_pred_proba):
     return float(np.mean((np.asarray(y_pred_proba) - np.asarray(y_true)) ** 2))
 

@@ -28,8 +28,8 @@ from sklearn.isotonic import IsotonicRegression
 
 import db
 from config import ARTIFACTS_DIR, CACHE_DIR, FEATURE_SET_VERSION
-from evaluate import brier_score, information_coefficient, top_decile_backtest
-from features import FEATURE_SETS
+from evaluate import brier_score, information_coefficient, liquidity_report, top_decile_backtest
+from features import FEATURE_SETS, TRADED_VALUE_COLUMN
 
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
 SHORT_SIDE_TARGETS = {"p_move_down_2pct"}
@@ -88,6 +88,8 @@ def main():
     columns = FEATURE_SETS[args.feature_set]
 
     df = load_dataset(args.horizon)
+    if TRADED_VALUE_COLUMN not in df.columns:
+        raise SystemExit(f"{TRADED_VALUE_COLUMN} not in dataset -- rerun build_dataset.py first.")
     if args.target not in df.columns:
         raise SystemExit(f"target '{args.target}' not in dataset columns: {list(df.columns)}")
 
@@ -100,6 +102,7 @@ def main():
 
     return_col = "next_day_return" if "next_day_return" in df.columns else "eod_return"
     all_val_true, all_val_pred, all_val_dates, all_val_symbols, all_val_returns = [], [], [], [], []
+    all_val_traded_value = []
     fold_metrics = []
     started_at = datetime.utcnow()
 
@@ -130,6 +133,7 @@ def main():
         all_val_dates.extend(val_df["candle_timestamp"].values)
         all_val_symbols.extend(val_df["symbol"].values)
         all_val_returns.extend(val_df[return_col].values)
+        all_val_traded_value.extend(val_df[TRADED_VALUE_COLUMN].values)
 
     if not all_val_pred:
         raise SystemExit("No fold produced enough validation data -- need a longer backfilled history.")
@@ -148,6 +152,18 @@ def main():
 
     print(f"\nOverall walk-forward IC: {overall_ic:.4f}" if pd.notna(overall_ic) else "\nOverall walk-forward IC: nan")
     print(f"Top-decile backtest ({backtest['side']}): {backtest}")
+
+    metrics["by_liquidity"] = liquidity_report(all_val_dates, all_val_true, all_val_pred, backtest_returns, all_val_traded_value)
+    print("\nBy liquidity (20-day average traded value):")
+    for tier, row in metrics["by_liquidity"].items():
+        if not row["days"]:
+            print(f"  {tier:<22} not enough stocks")
+            continue
+        print(
+            f"  {tier:<22} rows {row['rows']:>7}  days {row['days']:>3}  daily IC {row['mean_daily_ic']:+.4f}  "
+            f"top 10% {row['top_decile_return'] * 100:+.2f}%  vs average {row['top_minus_average'] * 100:+.2f}%  "
+            f"after cost {row['top_after_cost'] * 100:+.2f}%"
+        )
 
     # Final model: fit on everything up to the last embargo boundary so the
     # artifact reflects the most recent data, same recipe as the folds above.

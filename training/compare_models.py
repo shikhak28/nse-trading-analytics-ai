@@ -13,6 +13,7 @@ import db
 
 TARGETS = ["next_day_return", "p_move_up_2pct", "p_move_down_2pct"]
 MIN_FOLD_WIN_SHARE = 0.6
+MIN_IC_IMPROVEMENT = 0.005  # a smaller lead is noise at this sample size
 
 
 def latest_model(target, feature_set):
@@ -66,7 +67,7 @@ def main():
         wins = sum(candidate_folds[fold] > baseline_folds[fold] for fold in shared)
         print(f"v2 better in {wins} of {len(shared)} folds")
 
-        better_overall = candidate["metrics"]["overall_ic"] > baseline["metrics"]["overall_ic"]
+        better_overall = candidate["metrics"]["overall_ic"] - baseline["metrics"]["overall_ic"] >= MIN_IC_IMPROVEMENT
         if better_overall and wins / len(shared) >= MIN_FOLD_WIN_SHARE:
             print(f"Passes. To promote: UPDATE model_versions SET status='production' WHERE id={candidate['id']};")
         else:

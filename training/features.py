@@ -34,6 +34,8 @@ MARKET_CANDIDATE_COLUMNS = [
     "market_ret_1", "breadth_above_50dma", "sector_strength_5", "stock_vs_sector_5",
 ]
 
+TRADED_VALUE_COLUMN = "traded_value_20"
+
 FEATURE_SETS = {
     "v1": FEATURE_COLUMNS,
     "v2": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS,
@@ -158,8 +160,11 @@ def compute_features(df):
     sma_50 = close.rolling(50).mean()
     out["above_sma_50"] = (close > sma_50).astype(float).where(sma_50.notna())
 
+    # Not a model input: train.py uses it to report results by liquidity.
+    out[TRADED_VALUE_COLUMN] = (close * volume).rolling(20).mean()
+
     out = out.set_index("candle_timestamp")
-    return out[FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS]
+    return out[FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + [TRADED_VALUE_COLUMN]]
 
 
 def add_market_features(df, sectors):

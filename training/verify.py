@@ -22,6 +22,7 @@ import db
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
 MOVE_THRESHOLD = 0.02
 CANDLE_DATE_OFFSET = pd.Timedelta(hours=6)
+WRITE_BATCH_SIZE = 2000
 
 
 def trading_date(candle_timestamp):
@@ -93,13 +94,21 @@ def main():
         print(f"{horizon}: {len(pending)} pending")
 
         rows = []
+        written = 0
         for _, pred in pending.iterrows():
             result = verify_row(pred)
             if result:
                 rows.append(result)
+            # Saved in batches so a long rebuild can stop and resume: rows
+            # already written no longer count as pending.
+            if len(rows) >= WRITE_BATCH_SIZE:
+                db.insert_verifications(rows)
+                written += len(rows)
+                print(f"  wrote {written} verification(s) so far")
+                rows = []
 
         db.insert_verifications(rows)
-        print(f"  wrote {len(rows)} verification(s)")
+        print(f"  wrote {written + len(rows)} verification(s)")
 
 
 if __name__ == "__main__":
