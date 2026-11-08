@@ -45,7 +45,7 @@ function printResult(result, showAll) {
     }
     console.log(`\nNewly hidden: ${result.newlyHidden.length}   Restored: ${result.restored.length}`);
     console.log(`Never synced, left visible: ${result.neverSynced}`);
-    if (!result.tradingJudged) console.log("No recent candles for this exchange, so trading activity was not checked.");
+    if (!result.tradingJudged) console.log("Candle sync looks incomplete, so trading activity was not checked.");
     if (result.blocked) console.log("BLOCKED: this would hide over half the exchange. Nothing changed. Review, then use --force.");
 }
 

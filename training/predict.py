@@ -15,6 +15,37 @@ import pandas as pd
 import db
 from config import CACHE_DIR, TARGET_LABELS
 from explain import build_explainer, compute_shap_batch, top_features_for_row
+from features import FEATURE_SETS
+
+
+def load_todays_snapshot():
+    """Newest features of each symbol, for symbols whose newest candle is
+    today's. A symbol that didn't sync today is skipped: scoring its old
+    candle under today's date would publish a stale prediction as a new one.
+    """
+    path = CACHE_DIR / "next_day_latest.parquet"
+    if not path.exists():
+        print(f"  {path} missing, run build_dataset.py first")
+        return pd.DataFrame()
+
+    df = pd.read_parquet(path)
+    # Daily candles are stored at 00:00 or at 18:30 of the previous day,
+    # depending on the timezone of the process that synced them.
+    candle_day = (pd.to_datetime(df["candle_timestamp"]) + pd.Timedelta(hours=6)).dt.date
+    today = datetime.now(timezone.utc).date()
+    fresh = df[candle_day == today]
+    print(f"  {len(fresh)} of {len(df)} symbols have today's candle; the rest are skipped")
+    return fresh
+
+
+def load_latest_labelled(horizon):
+    path = CACHE_DIR / f"{horizon}.parquet"
+    if not path.exists():
+        print(f"  {path} missing, run build_dataset.py first")
+        return pd.DataFrame()
+    df = pd.read_parquet(path)
+    df["candle_timestamp"] = pd.to_datetime(df["candle_timestamp"])
+    return df.sort_values("candle_timestamp").groupby("symbol").tail(1)
 
 
 def predict_for_target(horizon, target):
@@ -23,20 +54,14 @@ def predict_for_target(horizon, target):
         print(f"  no production model for {horizon}/{target}, skipping")
         return
 
-    path = CACHE_DIR / f"{horizon}.parquet"
-    if not path.exists():
-        print(f"  {path} missing, run build_dataset.py first")
-        return
-    df = pd.read_parquet(path)
-    df["candle_timestamp"] = pd.to_datetime(df["candle_timestamp"])
-
-    latest_per_symbol = df.sort_values("candle_timestamp").groupby("symbol").tail(1)
+    latest_per_symbol = load_todays_snapshot() if horizon == "next_day" else load_latest_labelled(horizon)
     if latest_per_symbol.empty:
+        print(f"  nothing to score for {horizon}/{target}")
         return
 
-    from features import FEATURE_COLUMNS
+    columns = FEATURE_SETS[model_row["feature_set_version"]]
     model = joblib.load(model_row["artifact_path"])
-    X = latest_per_symbol[FEATURE_COLUMNS]
+    X = latest_per_symbol[columns]
 
     is_classification = target in {"p_move_up_2pct", "p_move_down_2pct"}
     if is_classification:
@@ -57,7 +82,7 @@ def predict_for_target(horizon, target):
     now = datetime.now(timezone.utc)
     rows = []
     for i, (_, row) in enumerate(latest_per_symbol.iterrows()):
-        explanation = top_features_for_row(row, shap_values[i] if shap_values is not None else None)
+        explanation = top_features_for_row(row, shap_values[i] if shap_values is not None else None, columns)
         if explanation is not None:
             explanation["direction"] = direction
 

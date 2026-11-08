@@ -63,6 +63,11 @@ export const predictionsApi = {
     return data;
   },
 
+  getPriceGroupPerformance: async (from) => {
+    const { data } = await client.get("/api/accuracy/price-groups", { params: { from } });
+    return data;
+  },
+
   getCurrentModel: async (horizon) => {
     const params = {};
     if (horizon) params.horizon = horizon;

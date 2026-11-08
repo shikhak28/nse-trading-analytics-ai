@@ -45,4 +45,21 @@ router.get("/classification", async (req, res) => {
   }
 });
 
+/**
+ * Expected-move model performance per price group, from a given date.
+ */
+router.get("/price-groups", async (req, res) => {
+  try {
+    const from = req.query.from?.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "")) {
+      return res.status(400).json({ success: false, message: "from must be YYYY-MM-DD" });
+    }
+    const performance = await predictionService.getPriceGroupPerformance({ from });
+    return res.json({ success: true, results: performance });
+  } catch (err) {
+    console.error("Price group performance error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

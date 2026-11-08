@@ -12,8 +12,6 @@ even though calibration itself isn't explained.
 
 import shap
 
-from features import FEATURE_COLUMNS
-
 FEATURE_LABELS = {
     "ret_1": "1-day return",
     "log_ret_1": "1-day log return",
@@ -37,6 +35,16 @@ FEATURE_LABELS = {
     "price_acceleration": "Price acceleration",
     "trend_slope_20": "20-day trend slope",
     "trend_r2_20": "20-day trend consistency",
+    "volume_ratio_1": "Volume vs previous day",
+    "volume_ratio_20": "Volume vs 20-day average",
+    "breakout_4pct": "4% breakout on rising volume",
+    "range_expansion_3": "Day's range expansion",
+    "close_location": "Close position in day's range",
+    "above_sma_50": "Price vs 50-day average",
+    "market_ret_1": "Overall market move",
+    "breadth_above_50dma": "Market breadth",
+    "sector_strength_5": "Sector strength",
+    "stock_vs_sector_5": "Stock vs its sector",
 }
 
 TOP_K = 3
@@ -80,11 +88,11 @@ def compute_shap_batch(explainer, X):
         return None
 
 
-def top_features_for_row(row, shap_row_values):
+def top_features_for_row(row, shap_row_values, columns):
     if shap_row_values is None:
         return None
 
-    contributions = list(zip(FEATURE_COLUMNS, shap_row_values))
+    contributions = list(zip(columns, shap_row_values))
     contributions.sort(key=lambda pair: abs(pair[1]), reverse=True)
     top = contributions[:TOP_K]
 

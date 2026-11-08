@@ -123,7 +123,10 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
   const allowedGroupBy = { day: "checked_at::date", month: "date_trunc('month', checked_at)" };
   const grouping = allowedGroupBy[groupBy] || allowedGroupBy.day;
 
-  const conditions = [];
+  // The probability models almost never reach 50%, so their signal_hit mostly
+  // counts stocks that simply didn't move 2%. They're scored by calibration
+  // in getClassificationMetrics instead.
+  const conditions = ["p.target_label NOT IN ('p_move_up_2pct', 'p_move_down_2pct')"];
   const values = [];
 
   if (horizon) {
@@ -135,7 +138,7 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
     conditions.push(`p.target_label = $${values.length}`);
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const where = `WHERE ${conditions.join(" AND ")}`;
 
   const result = await db.query(
     `SELECT ${grouping} AS bucket,
@@ -151,6 +154,71 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
     values
   );
   return result.rows;
+}
+
+// How the expected-move model has done inside each price group, against that
+// day's average stock. Only counts predictions whose day candle already
+// existed when they were made, so a sync outage can't blur the result.
+// Band edges mirror frontend/src/utils/priceBands.js.
+const GROUP_TOP_N = 5;
+
+async function getPriceGroupPerformance({ from }) {
+  const result = await db.query(
+    `WITH verified AS (
+       SELECT DISTINCT ON (p.exchange, p.symbol, p.predicted_at::date)
+              p.predicted_at::date AS day,
+              p.predicted_value::float8 AS predicted,
+              v.realized_return::float8 AS realized,
+              lc.close::float8 AS close
+       FROM prediction_verification v
+       JOIN predictions p ON p.id = v.prediction_id AND p.predicted_at = v.prediction_predicted_at
+       JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol AND c.excluded_reason IS NULL
+       JOIN LATERAL (
+         SELECT hp.close
+         FROM historical_prices hp
+         WHERE hp.exchange = p.exchange AND hp.symbol = p.symbol AND hp.interval = 'day'
+           AND hp.candle_timestamp >= p.predicted_at - interval '2 days'
+           AND hp.candle_timestamp <= p.predicted_at
+           AND (hp.candle_timestamp + interval '6 hours')::date = p.predicted_at::date
+           AND hp.created_at <= p.predicted_at
+         LIMIT 1
+       ) lc ON true
+       WHERE p.horizon = 'next_day' AND p.target_label = 'next_day_return'
+         AND p.predicted_at >= $1::date
+         AND abs(v.realized_return) <= 0.5
+       ORDER BY p.exchange, p.symbol, p.predicted_at::date, p.predicted_at DESC
+     ),
+     grouped AS (
+       SELECT *,
+              realized - avg(realized) OVER (PARTITION BY day) AS vs_market,
+              CASE WHEN close < 500 THEN 'penny'
+                   WHEN close < 5000 THEN 'mid'
+                   WHEN close < 10000 THEN 'upper'
+                   ELSE 'high_risk' END AS band
+       FROM verified
+     ),
+     ranked AS (
+       SELECT *,
+              row_number() OVER (PARTITION BY band, day ORDER BY predicted DESC) AS rise_rank,
+              row_number() OVER (PARTITION BY band, day ORDER BY predicted ASC) AS fall_rank,
+              percent_rank() OVER (PARTITION BY band, day ORDER BY predicted) AS predicted_rank,
+              percent_rank() OVER (PARTITION BY band, day ORDER BY vs_market) AS outcome_rank
+       FROM grouped
+     )
+     SELECT band,
+            count(*)::int AS rows,
+            count(DISTINCT day)::int AS days,
+            avg(CASE WHEN (predicted > 0) = (realized > 0) THEN 1.0 ELSE 0.0 END)::float8 AS direction_correct,
+            corr(predicted_rank, outcome_rank)::float8 AS rank_correlation,
+            avg(realized) FILTER (WHERE rise_rank <= $2 AND predicted > 0)::float8 AS rise_actual,
+            avg(vs_market) FILTER (WHERE rise_rank <= $2 AND predicted > 0)::float8 AS rise_vs_market,
+            avg(realized) FILTER (WHERE fall_rank <= $2 AND predicted < 0)::float8 AS fall_actual,
+            avg(vs_market) FILTER (WHERE fall_rank <= $2 AND predicted < 0)::float8 AS fall_vs_market
+     FROM ranked
+     GROUP BY band`,
+    [from, GROUP_TOP_N]
+  );
+  return { topN: GROUP_TOP_N, groups: result.rows };
 }
 
 const CLASSIFICATION_TARGETS = new Set(["p_move_up_2pct", "p_move_down_2pct"]);
@@ -282,6 +350,7 @@ async function getRankings({ date, category } = {}) {
 }
 
 module.exports = {
+  getPriceGroupPerformance,
   getClassificationMetrics,
   getPredictions,
   getPredictionById,

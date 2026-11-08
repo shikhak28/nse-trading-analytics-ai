@@ -46,6 +46,10 @@ def fetch_all_symbols(exchange=None):
     return fetch_df(sql, params)
 
 
+def fetch_sectors():
+    return fetch_df("SELECT exchange, symbol, sector FROM companies")
+
+
 def fetch_daily_candles(exchange, symbol):
     return fetch_df(
         """

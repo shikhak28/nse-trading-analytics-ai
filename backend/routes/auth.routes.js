@@ -5,6 +5,7 @@ const router = express.Router();
 const authService = require("../services/auth.service");
 const tokenService = require("../services/token.service");
 const userService = require("../services/user.service");
+const { isOwner, startOwnerSession, endOwnerSession } = require("../middleware/session");
 
 /**
  * Redirect user to Zerodha Login
@@ -36,6 +37,7 @@ router.get("/callback", async (req, res) => {
         }
 
         await authService.exchangeRequestToken(requestToken);
+        await startOwnerSession(req);
 
         console.log("Zerodha login successful");
 
@@ -62,6 +64,10 @@ router.get("/callback", async (req, res) => {
  * Check Login Status
  */
 router.get("/status", async (req, res) => {
+
+    if (!isOwner(req)) {
+        return res.json({ connected: false, authenticated: false });
+    }
 
     const token = await authService.loadAccessToken();
     const tokenMeta = await tokenService.getLatestTokenMeta();
@@ -93,7 +99,12 @@ router.get("/status", async (req, res) => {
  */
 router.get("/logout", async (req, res) => {
 
+    if (!isOwner(req)) {
+        return res.status(401).json({ success: false, message: "Please log in" });
+    }
+
     await authService.clearAccessToken();
+    await endOwnerSession(req);
 
     res.json({
 

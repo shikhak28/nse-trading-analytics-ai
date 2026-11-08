@@ -21,11 +21,21 @@ const accuracyRoutes = require("./routes/accuracy.routes");
 const modelRoutes = require("./routes/model.routes");
 const rankingRoutes = require("./routes/ranking.routes");
 const marketSocket = require("./realtime/marketSocket");
+const { sessionMiddleware, isOwner, requireOwner } = require("./middleware/session");
 
 const app = express();
 
+// nginx terminates HTTPS; without this the secure cookie is never issued.
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json());
+app.use(sessionMiddleware);
+
+app.use(
+  ["/market", "/agent", "/portfolio", "/gtt", "/orders", "/api", "/model", "/ranking"],
+  requireOwner
+);
 
 app.use("/auth", authRoutes);
 app.use("/market", marketRoutes);
@@ -58,6 +68,8 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
     cors: { origin: process.env.FRONTEND_URL || "http://localhost:5173" },
 });
+io.engine.use(sessionMiddleware);
+io.use((socket, next) => (isOwner(socket.request) ? next() : next(new Error("Please log in"))));
 marketSocket.attach(io);
 
 async function startServer() {

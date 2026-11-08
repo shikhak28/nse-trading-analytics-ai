@@ -10,12 +10,11 @@ import {
   ReferenceLine,
 } from "recharts";
 import { predictionsApi } from "../api/predictionsApi";
+import PriceGroupPerformance from "../components/PriceGroupPerformance";
 
 const TARGET_LABELS = [
   { value: "", label: "All Targets" },
   { value: "next_day_return", label: "Next-Day Return" },
-  { value: "p_move_up_2pct", label: "Likely to Rise" },
-  { value: "p_move_down_2pct", label: "Likely to Fall" },
   { value: "eod_return", label: "Intraday (EOD) Return" },
 ];
 
@@ -481,6 +480,7 @@ function Accuracy() {
         </>
       )}
 
+      <PriceGroupPerformance />
       <ClassificationPanel horizon={horizon} />
     </div>
   );

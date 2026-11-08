@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { marketApi } from "../api/marketApi";
 import { useLiveQuotes } from "../hooks/useLiveQuotes";
+import RiskCalculator from "../components/RiskCalculator";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const TABS = [
@@ -44,6 +45,7 @@ function Trading() {
   const [targetLimitPrice, setTargetLimitPrice] = useState(""); // oco target leg
   const [stoplossLimitPrice, setStoplossLimitPrice] = useState(""); // oco stoploss leg
   const [quantity, setQuantity] = useState(1);
+  const [dailyLimitHit, setDailyLimitHit] = useState(false);
   const isFromRule = selectedRuleId !== "custom";
 
   const [reviewing, setReviewing] = useState(false);
@@ -197,9 +199,11 @@ function Trading() {
     setModifyingTriggerId(null);
   };
 
+  // SELL stays allowed: a stop on the day's limit mustn't block getting out.
   const canReview = Boolean(
     selectedCompany &&
       quantity > 0 &&
+      !(dailyLimitHit && transactionType === "BUY") &&
       (isOco
         ? ocoTarget && ocoStoploss && (orderType === "MARKET" || (Number(targetLimitPrice) > 0 && Number(stoplossLimitPrice) > 0))
         : singleTrigger && (orderType === "MARKET" || Number(limitPrice) > 0))
@@ -562,6 +566,15 @@ function Trading() {
                   <label className={labelCls}>Quantity</label>
                   <input type="number" min="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} className={inputCls} />
                 </div>
+
+                <RiskCalculator
+                  entryPrice={ltp ?? Number(selectedCompany?.last_close)}
+                  stopPercent={isOco ? stoplossPercent : null}
+                  onUseQuantity={setQuantity}
+                  onDailyLimitChange={setDailyLimitHit}
+                  labelCls={labelCls}
+                  inputCls={inputCls}
+                />
 
                 <button
                   onClick={() => setReviewing(true)}

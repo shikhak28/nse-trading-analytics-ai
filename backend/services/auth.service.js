@@ -31,6 +31,13 @@ async function generateSession(requestToken) {
 async function exchangeRequestToken(requestToken) {
     const session = await generateSession(requestToken);
 
+    // Single-tenant: the first account to log in owns this deployment, and no
+    // other Zerodha account may replace its token.
+    const owner = await userService.getUser();
+    if (owner && owner.broker_user_id !== "unknown" && owner.broker_user_id !== session.user_id) {
+        throw new Error("This Zerodha account is not the owner of this site.");
+    }
+
     const user = await userService.upsertUserFromSession(session);
     await tokenService.saveToken(user.id, session.access_token);
     kite.setAccessToken(session.access_token);

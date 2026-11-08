@@ -11,6 +11,10 @@ const REASONS = {
 
 const NO_TRADE_DAYS = 30;
 
+// Below this share of the exchange having recent volume, the sync is
+// unfinished rather than most stocks having stopped trading.
+const MIN_RECENTLY_TRADED_SHARE = 0.7;
+
 // A bad Kite response or a broken sync would otherwise hide most of the site
 // in one run, so a run this large changes nothing unless forced.
 const MAX_NEWLY_HIDDEN_SHARE = 0.5;
@@ -18,10 +22,10 @@ const MAX_NEWLY_HIDDEN_SHARE = 0.5;
 /**
  * Symbols with volume in the NO_TRADE_DAYS before the exchange's newest daily
  * candle. Measured from that candle rather than today, so a machine that was
- * off for a month doesn't make every stock look dead. Null when the exchange
- * has no recent candles at all, meaning trading activity can't be judged.
+ * off for a month doesn't make every stock look dead. Null when the candles
+ * are too incomplete for trading activity to be judged.
  */
-async function getTradedSymbols(exchange) {
+async function getTradedSymbols(exchange, companyCount) {
     const { rows } = await db.query(
         `SELECT max(candle_timestamp) AS latest
          FROM historical_prices
@@ -38,6 +42,7 @@ async function getTradedSymbols(exchange) {
            AND candle_timestamp >= $2::timestamp - make_interval(days => $3)`,
         [exchange, latest, NO_TRADE_DAYS]
     );
+    if (traded.rows.length < companyCount * MIN_RECENTLY_TRADED_SHARE) return null;
     return new Set(traded.rows.map((row) => row.symbol));
 }
 
@@ -75,7 +80,7 @@ async function checkExchange(exchange, { apply, force }) {
         `SELECT symbol, company_name, excluded_reason, force_include FROM companies WHERE exchange = $1`,
         [exchange]
     );
-    const traded = await getTradedSymbols(exchange);
+    const traded = await getTradedSymbols(exchange, companies.length);
 
     const listingReason = (company) => {
         const instrument = listed.get(company.symbol);

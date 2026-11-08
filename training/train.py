@@ -4,6 +4,7 @@ Usage:
     python train.py --horizon next_day --target next_day_return
     python train.py --horizon next_day --target p_move_up_2pct
     python train.py --horizon eod --target eod_return
+    python train.py --horizon next_day --target next_day_return --feature-set v2
 
 Expanding-window walk-forward (design doc §7): train on [t0, fold_end),
 validate on the following FOLD_MONTHS-month block, embargo one day at the
@@ -28,7 +29,7 @@ from sklearn.isotonic import IsotonicRegression
 import db
 from config import ARTIFACTS_DIR, CACHE_DIR, FEATURE_SET_VERSION
 from evaluate import brier_score, information_coefficient, top_decile_backtest
-from features import FEATURE_COLUMNS
+from features import FEATURE_SETS
 
 CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
 SHORT_SIDE_TARGETS = {"p_move_down_2pct"}
@@ -82,7 +83,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--horizon", required=True, choices=["eod", "next_day"])
     parser.add_argument("--target", required=True)
+    parser.add_argument("--feature-set", default=FEATURE_SET_VERSION, choices=sorted(FEATURE_SETS))
     args = parser.parse_args()
+    columns = FEATURE_SETS[args.feature_set]
 
     df = load_dataset(args.horizon)
     if args.target not in df.columns:
@@ -108,8 +111,8 @@ def main():
         if len(train_df) < 200 or len(val_df) < 20:
             continue
 
-        X_train, y_train = train_df[FEATURE_COLUMNS], train_df[args.target]
-        X_val, y_val = val_df[FEATURE_COLUMNS], val_df[args.target]
+        X_train, y_train = train_df[columns], train_df[args.target]
+        X_val, y_val = val_df[columns], val_df[args.target]
 
         if is_classification:
             model = fit_classifier(X_train, y_train)
@@ -149,7 +152,7 @@ def main():
     # Final model: fit on everything up to the last embargo boundary so the
     # artifact reflects the most recent data, same recipe as the folds above.
     final_train = df[df["candle_timestamp"] < folds[-1][1]]
-    X_final, y_final = final_train[FEATURE_COLUMNS], final_train[args.target]
+    X_final, y_final = final_train[columns], final_train[args.target]
     final_model = fit_classifier(X_final, y_final) if is_classification else fit_regressor(X_final, y_final)
 
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -165,7 +168,7 @@ def main():
         "algorithm": "lightgbm",
         "version_tag": version_tag,
         "artifact_path": str(artifact_path),
-        "feature_set_version": FEATURE_SET_VERSION,
+        "feature_set_version": args.feature_set,
         "train_window_start": pd.Timestamp(folds[0][0]).date(),
         "train_window_end": pd.Timestamp(folds[-1][1]).date(),
         "status": "shadow",

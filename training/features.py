@@ -24,6 +24,21 @@ FEATURE_COLUMNS = [
     "price_acceleration", "trend_slope_20", "trend_r2_20",
 ]
 
+# Candidates for v2. They ship alongside v1 without touching it: a v2 model
+# only exists once train.py --feature-set v2 is run and then promoted by hand.
+STOCK_CANDIDATE_COLUMNS = [
+    "volume_ratio_1", "volume_ratio_20", "breakout_4pct", "range_expansion_3",
+    "close_location", "above_sma_50",
+]
+MARKET_CANDIDATE_COLUMNS = [
+    "market_ret_1", "breadth_above_50dma", "sector_strength_5", "stock_vs_sector_5",
+]
+
+FEATURE_SETS = {
+    "v1": FEATURE_COLUMNS,
+    "v2": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS,
+}
+
 
 def _rsi(close, window=14):
     delta = close.diff()
@@ -129,5 +144,40 @@ def compute_features(df):
     out["trend_slope_20"] = slope
     out["trend_r2_20"] = r2
 
+    prev_close = close.shift(1)
+    prev_volume = volume.shift(1)
+    out["volume_ratio_1"] = volume / prev_volume.replace(0, np.nan)
+    out["volume_ratio_20"] = volume / volume.rolling(20).mean().shift(1).replace(0, np.nan)
+    out["breakout_4pct"] = ((close / prev_close >= 1.04) & (volume > prev_volume)).astype(float).where(prev_close.notna())
+
+    day_range = high - low
+    prior_max_range = day_range.shift(1).rolling(3).max()
+    out["range_expansion_3"] = (day_range > prior_max_range).astype(float).where(prior_max_range.notna())
+    out["close_location"] = (close - low) / day_range.replace(0, np.nan)
+
+    sma_50 = close.rolling(50).mean()
+    out["above_sma_50"] = (close > sma_50).astype(float).where(sma_50.notna())
+
     out = out.set_index("candle_timestamp")
-    return out[FEATURE_COLUMNS]
+    return out[FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS]
+
+
+def add_market_features(df, sectors):
+    """Adds the features that need every stock at once. df: rows across all
+    symbols with exchange, symbol, candle_timestamp, ret_1, ret_5,
+    above_sma_50. sectors: [exchange, symbol, sector]. Each value uses only
+    that same day's cross-section, so nothing peeks ahead.
+    """
+    df = df.merge(sectors, on=["exchange", "symbol"], how="left")
+    # Daily candles are stored at 00:00 or 18:30 of the previous day.
+    day = (pd.to_datetime(df["candle_timestamp"]) + pd.Timedelta(hours=6)).dt.normalize()
+
+    by_day = df.groupby(day)
+    market_ret_5 = by_day["ret_5"].transform("mean")
+    sector_ret_5 = df.groupby([day, "sector"])["ret_5"].transform("mean")
+
+    df["market_ret_1"] = by_day["ret_1"].transform("mean")
+    df["breadth_above_50dma"] = by_day["above_sma_50"].transform("mean")
+    df["sector_strength_5"] = sector_ret_5 - market_ret_5
+    df["stock_vs_sector_5"] = df["ret_5"] - sector_ret_5
+    return df.drop(columns="sector")
