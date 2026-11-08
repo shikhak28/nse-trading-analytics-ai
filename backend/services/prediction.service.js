@@ -33,9 +33,21 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
   const result = await db.query(
     `SELECT p.id, p.exchange, p.symbol, p.predicted_at, p.horizon, p.target_label, p.model_version_id,
             p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
-            c.company_name, c.sector
+            c.company_name, c.sector, lc.last_close
      FROM predictions p
      JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol
+     -- Close as of when the prediction was made, so an old date is grouped by
+     -- its price back then. The 15-day floor limits the scan to the one or two
+     -- monthly partitions involved and treats a long-halted stock as unpriced.
+     LEFT JOIN LATERAL (
+       SELECT hp.close AS last_close
+       FROM historical_prices hp
+       WHERE hp.exchange = p.exchange AND hp.symbol = p.symbol AND hp.interval = 'day'
+         AND hp.candle_timestamp <= p.predicted_at
+         AND hp.candle_timestamp >= p.predicted_at - interval '15 days'
+       ORDER BY hp.candle_timestamp DESC
+       LIMIT 1
+     ) lc ON true
      ${where}
      ORDER BY p.predicted_at DESC
      LIMIT $${values.length - 1} OFFSET $${values.length}`,

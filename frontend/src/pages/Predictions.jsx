@@ -26,6 +26,22 @@ const CONFIDENCE_TIERS = [
   { label: "30%+", min: 0.30, max: Infinity },
 ];
 
+// Sections by last close (₹). min is inclusive, max exclusive. Stocks with no
+// recent close have no known band, so they only appear under "All".
+const PRICE_BANDS = [
+  { key: "penny", label: "Penny", range: "under ₹500", min: 0, max: 500 },
+  { key: "mid", label: "Mid", range: "₹500–5,000", min: 500, max: 5000 },
+  { key: "upper", label: "Upper", range: "₹5,000–10,000", min: 5000, max: 10000 },
+  { key: "high_risk", label: "High Risk", range: "₹10,000+", min: 10000, max: Infinity },
+];
+
+function matchesBand(row, band) {
+  if (!band) return true;
+  if (row.last_close === null || row.last_close === undefined) return false;
+  const price = Number(row.last_close);
+  return price >= band.min && price < band.max;
+}
+
 // Local (not UTC) YYYY-MM-DD -- toISOString() would roll back to the
 // previous day in IST before 5:30 AM.
 function toIsoDate(d) {
@@ -92,7 +108,11 @@ function PredictionRow({ row, badgeClass, arrow }) {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xs font-medium">{row.symbol}</div>
-          <div className="text-[11px] text-slate-500 dark:text-slate-400">{row.exchange}</div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+            {row.exchange}
+            {row.last_close !== null && row.last_close !== undefined &&
+              ` · ₹${Number(row.last_close).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {topFeatures?.length > 0 && (
@@ -214,9 +234,7 @@ function Predictions() {
   const [sectors, setSectors] = useState([]);
   const [sector, setSector] = useState("");
   const [search, setSearch] = useState("");
-
-  const [expectedGain, setExpectedGain] = useState([]);
-  const [expectedLoss, setExpectedLoss] = useState([]);
+  const [bandKey, setBandKey] = useState("all");
 
   const madeOn = previousTradingDay(date);
 
@@ -250,51 +268,40 @@ function Predictions() {
       }
     };
 
-    const loadMovers = async () => {
-      try {
-        const [gain, loss] = await Promise.all([
-          predictionsApi.getRankings({ date: madeOn, category: "top_expected_gain" }),
-          predictionsApi.getRankings({ date: madeOn, category: "top_expected_loss" }),
-        ]);
-        setExpectedGain(gain.success ? gain.results : []);
-        setExpectedLoss(loss.success ? loss.results : []);
-      } catch {
-        // Rankings are a supplementary section -- if rank.py hasn't been run
-        // yet for this date, just show the "no companies" empty state below
-        // instead of failing the whole page.
-        setExpectedGain([]);
-        setExpectedLoss([]);
-      }
-    };
-
     loadPredictions();
-    loadMovers();
   }, [madeOn, sector]);
 
-  const rankedRising = useMemo(
-    () =>
-      predictions
-        .filter((row) => row.target_label === "p_move_up_2pct" && matchesSearch(row, search))
-        .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
+  const searched = useMemo(
+    () => predictions.filter((row) => matchesSearch(row, search)),
     [predictions, search]
   );
 
-  const rankedFalling = useMemo(
-    () =>
-      predictions
-        .filter((row) => row.target_label === "p_move_down_2pct" && matchesSearch(row, search))
-        .sort((a, b) => Number(b.predicted_value) - Number(a.predicted_value)),
-    [predictions, search]
-  );
+  // Every list is ranked inside the selected band, so "Top 20" means the top
+  // 20 of that band rather than the slice of the overall top 20 that fits it.
+  const { rankedRising, rankedFalling, expectedGainers, expectedLosers } = useMemo(() => {
+    const band = PRICE_BANDS.find((b) => b.key === bandKey);
+    const rank = (label, direction) =>
+      searched
+        .filter((row) => row.target_label === label && matchesBand(row, band))
+        .sort((a, b) => direction * (Number(b.predicted_value) - Number(a.predicted_value)));
+    return {
+      rankedRising: rank("p_move_up_2pct", 1),
+      rankedFalling: rank("p_move_down_2pct", 1),
+      expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
+      expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
+    };
+  }, [searched, bandKey]);
 
-  const filteredExpectedGain = useMemo(
-    () => expectedGain.filter((row) => matchesSearch(row, search)),
-    [expectedGain, search]
-  );
-  const filteredExpectedLoss = useMemo(
-    () => expectedLoss.filter((row) => matchesSearch(row, search)),
-    [expectedLoss, search]
-  );
+  // One target only, so each company counts once rather than once per model.
+  const bandCounts = useMemo(() => {
+    const companies = searched.filter((row) => row.target_label === "p_move_up_2pct");
+    return {
+      all: companies.length,
+      ...Object.fromEntries(
+        PRICE_BANDS.map((band) => [band.key, companies.filter((row) => matchesBand(row, band)).length])
+      ),
+    };
+  }, [searched]);
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -371,6 +378,25 @@ function Predictions() {
         </div>
       </div>
 
+      <div className="mb-6 flex flex-wrap gap-2">
+        {[{ key: "all", label: "All" }, ...PRICE_BANDS].map((band) => (
+          <button
+            key={band.key}
+            type="button"
+            onClick={() => setBandKey(band.key)}
+            className={`rounded-full border px-4 py-2 text-sm ${
+              bandKey === band.key
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            <span className="font-medium">{band.label}</span>
+            {band.range && <span className="ml-1.5 opacity-75">{band.range}</span>}
+            <span className="ml-1.5 opacity-75">({bandCounts[band.key]})</span>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
           Loading predictions...
@@ -418,13 +444,13 @@ function Predictions() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PredictionList
                 title="Expected Gainers"
-                rows={filteredExpectedGain}
+                rows={expectedGainers}
                 arrow="▲"
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               />
               <PredictionList
                 title="Expected Losers"
-                rows={filteredExpectedLoss}
+                rows={expectedLosers}
                 arrow="▼"
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
