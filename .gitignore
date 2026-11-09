@@ -49,3 +49,6 @@ training/exports/
 training/venv/
 __pycache__/
 *.pyc
+
+# Unpublished research, kept out of the public repo
+pv_research/
