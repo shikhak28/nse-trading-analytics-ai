@@ -68,6 +68,7 @@ function TrendStocks() {
   const [minValue, setMinValue] = useState(0);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState("trend");
+  const [period, setPeriod] = useState("3m");
   const [signalFilter, setSignalFilter] = useState("all");
 
   useEffect(() => {
@@ -80,7 +81,7 @@ function TrendStocks() {
   const stocks = useMemo(() => {
     if (!data) return [];
     const needle = search.trim().toLowerCase();
-    const list = data[view].filter(
+    const list = (data.periods?.[period]?.[view] ?? []).filter(
       (s) =>
         (s.avg_traded_value ?? 0) >= minValue &&
         (signalFilter === "all" || s.signal === signalFilter) &&
@@ -97,15 +98,21 @@ function TrendStocks() {
       });
     }
     return list;
-  }, [data, view, search, minValue, sort, signalFilter]);
+  }, [data, view, search, minValue, sort, signalFilter, period]);
 
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
   const pageStocks = stocks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const months = data ? (view === "rising" ? data.risingMonths : data.fallingMonths) : view === "rising" ? 3 : 6;
+  const info = data?.periodInfo?.find((p) => p.key === period) ?? { label: "3 months", stepLabel: "month", steps: 3 };
+  const periodButtons = data?.periodInfo ?? [
+    { key: "1w", label: "1 week" },
+    { key: "1m", label: "1 month" },
+    { key: "3m", label: "3 months" },
+    { key: "6m", label: "6 months" },
+  ];
 
   const tabs = [
-    { value: "rising", label: `Steady Risers · ${data?.risingMonths ?? 3} months`, count: data?.rising.length },
-    { value: "falling", label: `Steady Fallers · ${data?.fallingMonths ?? 6} months`, count: data?.falling.length },
+    { value: "rising", label: "Steady Risers", count: data?.periods?.[period]?.rising.length },
+    { value: "falling", label: "Steady Fallers", count: data?.periods?.[period]?.falling.length },
   ];
 
   return (
@@ -115,9 +122,9 @@ function TrendStocks() {
           <h1 className="text-3xl font-semibold">Trend Stocks</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             {view === "rising"
-              ? `Stocks that closed higher every month for the last ${months} months.`
-              : `Stocks that closed lower every month for the last ${months} months.`}{" "}
-            A month is 21 trading days. Past trend, not a forecast.
+              ? `Stocks that closed higher every ${info.stepLabel} for the last ${info.label}.`
+              : `Stocks that closed lower every ${info.stepLabel} for the last ${info.label}.`}{" "}
+            A week is 5 trading days, a month 21. Past trend, not a forecast.
           </p>
           {data?.predictionDay && (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -179,6 +186,27 @@ function TrendStocks() {
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">Period</span>
+        {periodButtons.map((p) => (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => {
+              setPeriod(p.key);
+              setPage(0);
+            }}
+            className={`rounded-full border px-3 py-1.5 text-xs ${
+              period === p.key
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((t) => (
           <button
@@ -217,10 +245,10 @@ function TrendStocks() {
                 <thead>
                   <tr className="text-left text-[11px] text-slate-500 dark:text-slate-400">
                     <th className="pb-2 pr-3 font-medium">Stock</th>
-                    <th className="pb-2 pr-3 text-right font-medium">{months} months ago</th>
+                    <th className="pb-2 pr-3 text-right font-medium">{info.label} ago</th>
                     <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                     <th className="pb-2 pr-3 text-right font-medium">Total change</th>
-                    <th className="pb-2 pr-3 font-medium">Each month</th>
+                    <th className="pb-2 pr-3 font-medium">Each {info.stepLabel}</th>
                     <th className="pb-2 pr-3 font-medium">Signal</th>
                     <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
                     <th className="pb-2 text-right font-medium">Avg traded/day</th>

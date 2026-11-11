@@ -1,13 +1,17 @@
 const db = require("../config/db");
 const { getPriceGroupStocks } = require("./prediction.service");
 
-// A "month" here is 21 trading days, counted back from each stock's newest
-// day candle (calendar months would make the current, partial month count).
-// A stock is "rising" when every one of its last 3 monthly closes beat the
-// one before, and "falling" when each of its last 6 came in below.
-const MONTH = 21;
-const RISING_MONTHS = 3;
-const FALLING_MONTHS = 6;
+// Steps are counted in trading days back from each stock's newest day
+// candle (calendar periods would make the current, partial one count). A
+// stock is "rising" over a period when every step closed above the one
+// before it, and "falling" when every step closed below.
+const PERIODS = [
+  { key: "1w", label: "1 week", stepLabel: "day", step: 1, steps: 5 },
+  { key: "1m", label: "1 month", stepLabel: "week", step: 5, steps: 4 },
+  { key: "3m", label: "3 months", stepLabel: "month", step: 21, steps: 3 },
+  { key: "6m", label: "6 months", stepLabel: "month", step: 21, steps: 6 },
+];
+const MAX_LOOKBACK = Math.max(...PERIODS.map((p) => p.step * p.steps));
 
 // The scan takes ~30 s and the answer only changes once a day after the EOD
 // sync, so visitors are always served from memory: a stale result is
@@ -22,12 +26,12 @@ async function computeTrends() {
   // a scan filtered only on interval = 'day' reads millions of rows (~2 min
   // vs ~30 s this way).
   const result = await db.query(
-    `SELECT c.exchange, c.symbol, c.company_name, t.pts, t.avg_traded_value
+    `SELECT c.exchange, c.symbol, c.company_name, t.closes, t.avg_traded_value
      FROM companies c
      CROSS JOIN LATERAL (
-       -- Monthly checkpoints, newest first: pts[1] = latest close,
-       -- pts[2] = 21 trading days back, and so on.
-       SELECT array_agg(x.close::float8 ORDER BY x.k) FILTER (WHERE x.k % ${MONTH} = 0) AS pts,
+       -- Daily closes, newest first: closes[1] = latest, closes[2] = the
+       -- trading day before, and so on.
+       SELECT array_agg(x.close::float8 ORDER BY x.k) AS closes,
               max(x.candle_timestamp) AS last_candle_at,
               avg(x.close * x.volume) FILTER (WHERE x.k < 20)::float8 AS avg_traded_value
        FROM (
@@ -37,7 +41,7 @@ async function computeTrends() {
          WHERE hp.exchange = c.exchange AND hp.symbol = c.symbol AND hp.interval = 'day'
            AND hp.candle_timestamp >= now() - interval '210 days'
          ORDER BY hp.candle_timestamp DESC
-         LIMIT ${MONTH * FALLING_MONTHS + 1}
+         LIMIT ${MAX_LOOKBACK + 1}
        ) x
      ) t
      WHERE c.excluded_reason IS NULL
@@ -45,30 +49,37 @@ async function computeTrends() {
        AND t.last_candle_at >= now() - interval '10 days'`
   );
 
-  const rising = [];
-  const falling = [];
+  const periods = Object.fromEntries(PERIODS.map((p) => [p.key, { rising: [], falling: [] }]));
 
   for (const row of result.rows) {
-    const pts = row.pts || [];
+    const closes = row.closes || [];
     const base = {
       exchange: row.exchange,
       symbol: row.symbol,
       company_name: row.company_name,
-      last_close: pts[0],
+      last_close: closes[0],
       avg_traded_value: row.avg_traded_value,
     };
 
-    if (pts.length > RISING_MONTHS && isMonotonic(pts, RISING_MONTHS, (newer, older) => newer > older)) {
-      rising.push({ ...base, ...summarise(pts, RISING_MONTHS) });
-    }
-    if (pts.length > FALLING_MONTHS && isMonotonic(pts, FALLING_MONTHS, (newer, older) => newer < older)) {
-      falling.push({ ...base, ...summarise(pts, FALLING_MONTHS) });
+    for (const period of PERIODS) {
+      // Checkpoints newest first: latest close, one step back, two steps...
+      const pts = [];
+      for (let i = 0; i <= period.steps; i++) pts.push(closes[i * period.step]);
+      if (pts.some((v) => v == null)) continue;
+
+      if (isMonotonic(pts, period.steps, (newer, older) => newer > older)) {
+        periods[period.key].rising.push({ ...base, ...summarise(pts, period.steps) });
+      } else if (isMonotonic(pts, period.steps, (newer, older) => newer < older)) {
+        periods[period.key].falling.push({ ...base, ...summarise(pts, period.steps) });
+      }
     }
   }
 
-  rising.sort((a, b) => b.total_change - a.total_change);
-  falling.sort((a, b) => a.total_change - b.total_change);
-  return { rising, falling, risingMonths: RISING_MONTHS, fallingMonths: FALLING_MONTHS };
+  for (const lists of Object.values(periods)) {
+    lists.rising.sort((a, b) => b.total_change - a.total_change);
+    lists.falling.sort((a, b) => a.total_change - b.total_change);
+  }
+  return { periods, periodInfo: PERIODS };
 }
 
 function isMonotonic(pts, months, compare) {
@@ -78,7 +89,7 @@ function isMonotonic(pts, months, compare) {
   return true;
 }
 
-// Monthly % changes, oldest month first, plus the total over the window.
+// % change of each step, oldest first, plus the total over the window.
 function summarise(pts, months) {
   const monthly = [];
   for (let i = months - 1; i >= 0; i--) monthly.push(pts[i] / pts[i + 1] - 1);
@@ -128,7 +139,10 @@ async function withPredictions(data) {
       signal: p?.signal ?? null,
     };
   };
-  return { ...data, rising: data.rising.map(attach), falling: data.falling.map(attach), predictionDay: day };
+  const periods = Object.fromEntries(
+    Object.entries(data.periods).map(([key, lists]) => [key, { rising: lists.rising.map(attach), falling: lists.falling.map(attach) }])
+  );
+  return { ...data, periods, predictionDay: day };
 }
 
 async function getTrends() {
