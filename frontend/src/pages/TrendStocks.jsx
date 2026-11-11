@@ -18,6 +18,23 @@ function pct(value) {
   return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
 }
 
+const SIGNALS = {
+  positive: { label: "Positive", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  negative: { label: "Negative", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+  none: { label: "No clear signal", className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+};
+
+const SORTS = {
+  trend: { label: "Sort: biggest trend" },
+  expected: { label: "Sort: highest expected move" },
+};
+
+function SignalBadge({ signal }) {
+  if (!signal) return <span className="text-[11px] text-slate-400">—</span>;
+  const s = SIGNALS[signal];
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${s.className}`}>{s.label}</span>;
+}
+
 function price(value) {
   return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
@@ -50,6 +67,8 @@ function TrendStocks() {
   const [search, setSearch] = useState("");
   const [minValue, setMinValue] = useState(0);
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState("trend");
+  const [signalFilter, setSignalFilter] = useState("all");
 
   useEffect(() => {
     marketApi
@@ -61,12 +80,24 @@ function TrendStocks() {
   const stocks = useMemo(() => {
     if (!data) return [];
     const needle = search.trim().toLowerCase();
-    return data[view].filter(
+    const list = data[view].filter(
       (s) =>
         (s.avg_traded_value ?? 0) >= minValue &&
+        (signalFilter === "all" || s.signal === signalFilter) &&
         (!needle || s.symbol.toLowerCase().includes(needle) || s.company_name?.toLowerCase().includes(needle))
     );
-  }, [data, view, search, minValue]);
+    if (sort === "expected") {
+      // Risers: biggest expected gain first. Fallers: biggest expected drop
+      // first. Stocks with no prediction go last.
+      const dir = view === "rising" ? -1 : 1;
+      return [...list].sort((a, b) => {
+        if (a.expected_return == null) return 1;
+        if (b.expected_return == null) return -1;
+        return dir * (a.expected_return - b.expected_return);
+      });
+    }
+    return list;
+  }, [data, view, search, minValue, sort, signalFilter]);
 
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
   const pageStocks = stocks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -88,6 +119,11 @@ function TrendStocks() {
               : `Stocks that closed lower every month for the last ${months} months.`}{" "}
             A month is 21 trading days. Past trend, not a forecast.
           </p>
+          {data?.predictionDay && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Signal and expected move are the model's view for the next trading day, made on {data.predictionDay}.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -107,6 +143,35 @@ function TrendStocks() {
             }} className={field} aria-label="Minimum daily traded value">
             {LIQUIDITY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={signalFilter}
+            onChange={(e) => {
+              setSignalFilter(e.target.value);
+              setPage(0);
+            }}
+            className={field}
+            aria-label="Signal"
+          >
+            <option value="all">All signals</option>
+            <option value="positive">Positive only</option>
+            <option value="negative">Negative only</option>
+            <option value="none">No clear signal</option>
+          </select>
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(0);
+            }}
+            className={field}
+            aria-label="Sort"
+          >
+            {Object.entries(SORTS).map(([value, o]) => (
+              <option key={value} value={value}>
                 {o.label}
               </option>
             ))}
@@ -156,6 +221,8 @@ function TrendStocks() {
                     <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                     <th className="pb-2 pr-3 text-right font-medium">Total change</th>
                     <th className="pb-2 pr-3 font-medium">Each month</th>
+                    <th className="pb-2 pr-3 font-medium">Signal</th>
+                    <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
                     <th className="pb-2 text-right font-medium">Avg traded/day</th>
                   </tr>
                 </thead>
@@ -179,6 +246,20 @@ function TrendStocks() {
                       </td>
                       <td className="py-2 pr-3">
                         <MonthBars monthly={s.monthly} />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <SignalBadge signal={s.signal} />
+                      </td>
+                      <td
+                        className={`py-2 pr-3 text-right font-medium ${
+                          s.expected_return == null
+                            ? "text-slate-400"
+                            : s.expected_return >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {s.expected_return == null ? "—" : `${s.expected_return >= 0 ? "+" : ""}${(s.expected_return * 100).toFixed(2)}%`}
                       </td>
                       <td className="py-2 text-right text-slate-500 dark:text-slate-400">{crore(s.avg_traded_value)}</td>
                     </tr>

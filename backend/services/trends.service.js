@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { getPriceGroupStocks } = require("./prediction.service");
 
 // A "month" here is 21 trading days, counted back from each stock's newest
 // day candle (calendar months would make the current, partial month count).
@@ -98,10 +99,42 @@ function refresh() {
   return inFlight;
 }
 
+// The newest day with next_day predictions, skipping known-bad days.
+async function latestPredictionDay() {
+  const result = await db.query(
+    `SELECT to_char(max(p.predicted_at)::date, 'YYYY-MM-DD') AS day
+     FROM predictions p
+     WHERE p.horizon = 'next_day'
+       AND p.predicted_at >= now() - interval '30 days'
+       AND NOT EXISTS (SELECT 1 FROM invalid_prediction_days ipd WHERE ipd.day = p.predicted_at::date)`
+  );
+  return result.rows[0]?.day || null;
+}
+
+// Adds the latest model view (expected move, chances, Signal) to each trend
+// stock. Fetched per request (~0.3 s) so it's fresh right after predict.py
+// runs, while the slow trend scan stays cached.
+async function withPredictions(data) {
+  const day = await latestPredictionDay();
+  if (!day) return { ...data, predictionDay: null };
+  const preds = new Map((await getPriceGroupStocks({ date: day })).map((p) => [`${p.exchange}:${p.symbol}`, p]));
+  const attach = (s) => {
+    const p = preds.get(`${s.exchange}:${s.symbol}`);
+    return {
+      ...s,
+      expected_return: p?.expected_return ?? null,
+      chance_up: p?.chance_up ?? null,
+      chance_down: p?.chance_down ?? null,
+      signal: p?.signal ?? null,
+    };
+  };
+  return { ...data, rising: data.rising.map(attach), falling: data.falling.map(attach), predictionDay: day };
+}
+
 async function getTrends() {
   if (!cache) await refresh();
   else if (Date.now() - cache.at > REFRESH_MS) refresh().catch((err) => console.error("[trends] refresh failed:", err.message));
-  return { ...cache.data, computedAt: cache.at };
+  return { ...(await withPredictions(cache.data)), computedAt: cache.at };
 }
 
 // Warm the cache shortly after the server starts, so the first visitor
