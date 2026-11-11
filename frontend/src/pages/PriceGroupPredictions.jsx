@@ -16,6 +16,39 @@ function formatChance(value) {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
+// Signal rule: a clear lean one way, and an expected move bigger than the
+// ~0.3% round-trip trading cost. Both chances close = just a volatile
+// stock, no direction.
+const SIGNAL_GAP = 0.15;
+const TRADING_COST = 0.003;
+// "Liquid" = at least ₹20 crore traded per day on average (last 20 sessions).
+const LIQUID_MIN_VALUE = 2e8;
+// NSE series suffixes for trade-to-trade (BE, BZ) and SME (SM, ST) stocks.
+const THIN_SERIES = /-(BE|BZ|SM|ST)$/;
+
+const SIGNALS = {
+  positive: { label: "Positive", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  negative: { label: "Negative", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+  none: { label: "No clear signal", className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
+};
+
+function signalFor(stock) {
+  if (stock.chance_up == null || stock.chance_down == null) return "none";
+  const gap = stock.chance_up - stock.chance_down;
+  if (gap >= SIGNAL_GAP && stock.expected_return > TRADING_COST) return "positive";
+  if (gap <= -SIGNAL_GAP && stock.expected_return < -TRADING_COST) return "negative";
+  return "none";
+}
+
+function isLiquid(stock) {
+  return !THIN_SERIES.test(stock.symbol) && (stock.avg_traded_value ?? 0) >= LIQUID_MIN_VALUE;
+}
+
+function SignalBadge({ stock }) {
+  const signal = SIGNALS[signalFor(stock)];
+  return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${signal.className}`}>{signal.label}</span>;
+}
+
 function formatPrice(value) {
   return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
@@ -40,6 +73,7 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
             <thead>
               <tr className="text-left text-[11px] text-slate-500 dark:text-slate-400">
                 <th className="pb-2 pr-3 font-medium">Stock</th>
+                <th className="pb-2 pr-3 font-medium">Signal</th>
                 <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                 <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Chance of +2%</th>
@@ -52,6 +86,9 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                   <td className="py-2 pr-3">
                     <div className="font-medium">{stock.symbol}</div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">{stock.exchange}</div>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <SignalBadge stock={stock} />
                   </td>
                   <td className="py-2 pr-3 text-right">
                     <div>{formatPrice(stock.last_close)}</div>
@@ -105,6 +142,7 @@ function PriceGroupPredictions() {
   const [date, setDate] = useState(todayIso());
   const [bandValue, setBandValue] = useState("high_risk");
   const [search, setSearch] = useState("");
+  const [liquidOnly, setLiquidOnly] = useState(true);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -138,7 +176,10 @@ function PriceGroupPredictions() {
     };
   }, [madeOn]);
 
-  const stocks = rows;
+  // A search always shows its matches, even thin stocks -- otherwise
+  // looking up a specific small stock would come back empty.
+  const searching = search.trim() !== "";
+  const stocks = useMemo(() => (liquidOnly && !searching ? rows.filter(isLiquid) : rows), [rows, liquidOnly, searching]);
   const band = PRICE_BANDS.find((item) => item.value === bandValue);
 
   const { rising, falling } = useMemo(() => {
@@ -159,7 +200,7 @@ function PriceGroupPredictions() {
     [stocks]
   );
 
-  const tableKey = `${bandValue}-${madeOn}-${search}`;
+  const tableKey = `${bandValue}-${madeOn}-${search}-${liquidOnly}`;
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -171,6 +212,12 @@ function PriceGroupPredictions() {
             <span className="font-medium text-slate-700 dark:text-slate-200">{formatDay(date)}</span>, close to close
             (predicted after market close on {formatDay(madeOn)}). These are model estimates, not guarantees.
           </p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">Positive</span> /{" "}
+            <span className="font-medium text-red-600 dark:text-red-400">Negative</span>: the chance of one direction is at
+            least 15 points higher than the other, and the expected move beats the ~0.3% trading cost. Otherwise{" "}
+            <span className="font-medium">No clear signal</span>. Research only, not investment advice.
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -181,6 +228,10 @@ function PriceGroupPredictions() {
             placeholder="Search symbol or company..."
             className={`${field} w-56`}
           />
+          <label className={`${field} flex cursor-pointer items-center gap-2`} title="Hides stocks trading under ₹20 crore a day, and trade-to-trade (-BE) / SME (-SM, -ST) stocks">
+            <input type="checkbox" checked={liquidOnly} onChange={(e) => setLiquidOnly(e.target.checked)} />
+            Only liquid stocks
+          </label>
           <input
             type="date"
             value={date}

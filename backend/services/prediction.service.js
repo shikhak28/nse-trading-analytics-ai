@@ -91,7 +91,8 @@ async function getPriceGroupStocks({ date }) {
             lc.last_close::float8 AS last_close,
             -- Day candles are stored at 00:00 IST in UTC (18:30 the day
             -- before); +6h lands on the IST trading date, as dailyMovers does.
-            to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day
+            to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day,
+            tv.avg_traded_value
      FROM stocks s
      JOIN companies c ON c.exchange = s.exchange AND c.symbol = s.symbol AND c.excluded_reason IS NULL
      -- Same rule as getPredictions: the close as of when the prediction was
@@ -105,6 +106,20 @@ async function getPriceGroupStocks({ date }) {
        ORDER BY hp.candle_timestamp DESC
        LIMIT 1
      ) lc ON true
+     -- Average ₹ traded per day over the 20 sessions up to the prediction,
+     -- so the page can hide stocks too thin to trade at the shown price.
+     LEFT JOIN LATERAL (
+       SELECT avg(x.close * x.volume)::float8 AS avg_traded_value
+       FROM (
+         SELECT hp.close, hp.volume
+         FROM historical_prices hp
+         WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
+           AND hp.candle_timestamp <= s.predicted_at
+           AND hp.candle_timestamp >= s.predicted_at - interval '45 days'
+         ORDER BY hp.candle_timestamp DESC
+         LIMIT 20
+       ) x
+     ) tv ON true
      WHERE s.expected_return IS NOT NULL`,
     [date]
   );
