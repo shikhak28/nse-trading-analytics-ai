@@ -38,7 +38,9 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
   const result = await db.query(
     `SELECT p.id, p.exchange, p.symbol, p.predicted_at, p.horizon, p.target_label, p.model_version_id,
             p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
-            c.company_name, c.sector, lc.last_close
+            c.company_name, c.sector, lc.last_close,
+            -- What actually happened on the predicted day (NULL until its EOD sync).
+            (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return
      FROM predictions p
      JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol AND c.excluded_reason IS NULL
      -- Close as of when the prediction was made, so an old date is grouped by
@@ -53,6 +55,15 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
        ORDER BY hp.candle_timestamp DESC
        LIMIT 1
      ) lc ON true
+     LEFT JOIN LATERAL (
+       SELECT hp.close AS actual_close
+       FROM historical_prices hp
+       WHERE hp.exchange = p.exchange AND hp.symbol = p.symbol AND hp.interval = 'day'
+         AND hp.candle_timestamp > p.predicted_at
+         AND hp.candle_timestamp < p.predicted_at + interval '10 days'
+       ORDER BY hp.candle_timestamp
+       LIMIT 1
+     ) ac ON true
      ${where}
      ORDER BY p.predicted_at DESC
      LIMIT $${values.length - 1} OFFSET $${values.length}`,

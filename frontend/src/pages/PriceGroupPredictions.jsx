@@ -137,9 +137,9 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                 <th className="pb-2 pr-3 font-medium">Signal</th>
                 <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                 <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
+                <th className="pb-2 pr-3 text-right font-medium">Actual move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Chance of +2%</th>
-                <th className="pb-2 pr-3 text-right font-medium">Chance of −2%</th>
-                <th className="pb-2 text-right font-medium">Actual</th>
+                <th className="pb-2 text-right font-medium">Chance of −2%</th>
               </tr>
             </thead>
             <tbody>
@@ -164,11 +164,11 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                     )}
                   </td>
                   <td className={`py-2 pr-3 text-right text-sm font-semibold ${moveClass}`}>{formatMove(stock.expected_return)}</td>
-                  <td className="py-2 pr-3 text-right">{formatChance(stock.chance_up)}</td>
-                  <td className="py-2 pr-3 text-right">{formatChance(stock.chance_down)}</td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 pr-3 text-right">
                     <ActualCell stock={stock} />
                   </td>
+                  <td className="py-2 pr-3 text-right">{formatChance(stock.chance_up)}</td>
+                  <td className="py-2 text-right">{formatChance(stock.chance_down)}</td>
                 </tr>
               ))}
             </tbody>

@@ -40,6 +40,49 @@ function formatPercent(value) {
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
+function formatMove(value) {
+  return `${value >= 0 ? "+" : ""}${(value * 100).toFixed(2)}%`;
+}
+
+// Actual move on the predicted day, with ✓ when it went the predicted way
+// (dir 1 = up, -1 = down).
+function ActualMove({ row, dir }) {
+  if (row.actual_return == null) {
+    return <span className="text-[11px] text-slate-400" title="Shows after that day's market close">Waiting</span>;
+  }
+  const right = Math.sign(row.actual_return) === dir;
+  return (
+    <span className="inline-flex items-center gap-1 text-xs" title={right ? "Moved the predicted way" : "Moved the other way"}>
+      <span className="text-[11px] text-slate-400">Actual</span>
+      <span className={`font-semibold ${row.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+        {formatMove(row.actual_return)}
+      </span>
+      <span className={`rounded-full px-1.5 text-[11px] font-bold ${right ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"}`}>
+        {right ? "✓" : "✗"}
+      </span>
+    </span>
+  );
+}
+
+// "12 of 20 went up · 3 hit +2% · avg +0.40%" for a list, once results exist.
+function ListScore({ rows, dir }) {
+  const done = rows.filter((r) => r.actual_return != null);
+  if (done.length === 0) return null;
+  const right = done.filter((r) => Math.sign(r.actual_return) === dir).length;
+  const hit = done.filter((r) => r.actual_return * dir >= 0.02).length;
+  const avg = done.reduce((sum, r) => sum + r.actual_return, 0) / done.length;
+  return (
+    <div className="mb-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-xs">
+      <span className="font-semibold">
+        {right} of {done.length}
+      </span>{" "}
+      went {dir > 0 ? "up" : "down"} ({Math.round((right / done.length) * 100)}%)
+      <span className="text-slate-500 dark:text-slate-400"> · {hit} moved {dir > 0 ? "+" : "−"}2% or more · avg actual </span>
+      <span className={avg >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{formatMove(avg)}</span>
+    </div>
+  );
+}
+
 function PredictionRow({ row, badgeClass, arrow }) {
   const [expanded, setExpanded] = useState(false);
   const topFeatures = row.explanation?.topFeatures;
@@ -69,6 +112,7 @@ function PredictionRow({ row, badgeClass, arrow }) {
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
             {arrow} {formatPercent(row.predicted_value)}
           </span>
+          <ActualMove row={row} dir={arrow === "▲" ? 1 : -1} />
         </div>
       </div>
 
@@ -100,6 +144,7 @@ function PredictionList({ title, rows, badgeClass, arrow, pageSize = PAGE_SIZE }
         <h2 className="text-sm font-medium">{title}</h2>
         <span className="text-[11px] text-slate-500 dark:text-slate-400">{rows.length} companies</span>
       </div>
+      <ListScore rows={rows} dir={arrow === "▲" ? 1 : -1} />
 
       {rows.length === 0 ? (
         <div className="py-8 text-center text-xs text-slate-500 dark:text-slate-400">No companies in this range.</div>
