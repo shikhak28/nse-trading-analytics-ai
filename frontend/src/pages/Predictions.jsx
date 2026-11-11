@@ -109,9 +109,18 @@ function PredictionRow({ row, badgeClass, arrow }) {
               ⓘ Why
             </button>
           )}
+          <span className="text-[11px] text-slate-400">{row.target_label === "next_day_return" ? "Expected" : "Chance of 2%"}</span>
           <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
             {arrow} {formatPercent(row.predicted_value)}
           </span>
+          {row.target_label !== "next_day_return" && row.expected_return != null && (
+            <span className="inline-flex items-center gap-1 text-xs" title="Model's expected % move for the day">
+              <span className="text-[11px] text-slate-400">Expected</span>
+              <span className={`font-semibold ${row.expected_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {formatMove(row.expected_return)}
+              </span>
+            </span>
+          )}
           <ActualMove row={row} dir={arrow === "▲" ? 1 : -1} />
         </div>
       </div>
@@ -257,7 +266,14 @@ function Predictions() {
   }, [madeOn, sector]);
 
   const { rankedRising, rankedFalling, expectedGainers, expectedLosers } = useMemo(() => {
-    const searched = predictions.filter((row) => matchesSearch(row, search));
+    // Every row also carries the stock's expected % move (next_day_return),
+    // so the chance lists can show expected vs actual side by side.
+    const expected = new Map(
+      predictions.filter((r) => r.target_label === "next_day_return").map((r) => [`${r.exchange}:${r.symbol}`, Number(r.predicted_value)])
+    );
+    const searched = predictions
+      .filter((row) => matchesSearch(row, search))
+      .map((row) => ({ ...row, expected_return: expected.get(`${row.exchange}:${row.symbol}`) ?? null }));
     const rank = (label, direction) =>
       searched
         .filter((row) => row.target_label === label)
