@@ -31,6 +31,89 @@ function formatPrice(value) {
   return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
+// Right = the stock actually moved the way it was predicted.
+function isRight(stock) {
+  return Math.sign(stock.actual_return) === Math.sign(stock.expected_return) && stock.actual_return !== 0;
+}
+
+function ActualCell({ stock }) {
+  if (stock.actual_return == null) {
+    return <span className="text-[11px] text-slate-400">Waiting</span>;
+  }
+  const right = isRight(stock);
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <span className={`font-semibold ${stock.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+        {formatMove(stock.actual_return)}
+      </span>
+      <span
+        className={`rounded-full px-1.5 text-[11px] font-bold ${right ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"}`}
+        title={right ? "Moved the predicted way" : "Moved the other way"}
+      >
+        {right ? "✓" : "✗"}
+      </span>
+    </div>
+  );
+}
+
+function scoreOf(stocks) {
+  const done = stocks.filter((s) => s.actual_return != null);
+  const right = done.filter(isRight).length;
+  const avg = done.length ? done.reduce((sum, s) => sum + s.actual_return, 0) / done.length : null;
+  return { total: done.length, right, avg };
+}
+
+function ScoreBox({ label, score }) {
+  const pct = score.total ? Math.round((score.right / score.total) * 100) : null;
+  return (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      {score.total === 0 ? (
+        <div className="mt-1 text-sm text-slate-400">No results</div>
+      ) : (
+        <>
+          <div className="mt-1 text-2xl font-semibold">
+            {score.right} <span className="text-base font-normal text-slate-500">of {score.total} right</span>
+          </div>
+          <div className="mt-1 text-xs">
+            <span className={pct >= 50 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{pct}% right</span>
+            <span className="text-slate-500 dark:text-slate-400"> · avg actual move </span>
+            <span className={score.avg >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{formatMove(score.avg)}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ResultSummary({ date, rising, falling }) {
+  const all = [...rising, ...falling];
+  const done = all.filter((s) => s.actual_return != null).length;
+  if (all.length === 0) return null;
+  if (done === 0) {
+    return (
+      <div className={`${card} mb-6 p-5 text-sm text-slate-500 dark:text-slate-400`}>
+        Result for {formatDay(date)}: not ready yet. It shows here after that day's market close (prices sync at ~4:30 PM).
+      </div>
+    );
+  }
+  const positive = all.filter((s) => s.signal === "positive");
+  const negative = all.filter((s) => s.signal === "negative");
+  return (
+    <div className={`${card} mb-6 p-5`}>
+      <h2 className="mb-3 text-sm font-medium">
+        Result for {formatDay(date)} <span className="font-normal text-slate-500 dark:text-slate-400">(stocks shown with current filters)</span>
+      </h2>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <ScoreBox label="Expected to Rise" score={scoreOf(rising)} />
+        <ScoreBox label="Expected to Fall" score={scoreOf(falling)} />
+        <ScoreBox label="Positive signal" score={scoreOf(positive)} />
+        <ScoreBox label="Negative signal" score={scoreOf(negative)} />
+      </div>
+    </div>
+  );
+}
+
 function MoveTable({ title, stocks, moveClass, madeOn }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
@@ -55,7 +138,8 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                 <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                 <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Chance of +2%</th>
-                <th className="pb-2 text-right font-medium">Chance of −2%</th>
+                <th className="pb-2 pr-3 text-right font-medium">Chance of −2%</th>
+                <th className="pb-2 text-right font-medium">Actual</th>
               </tr>
             </thead>
             <tbody>
@@ -81,7 +165,10 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                   </td>
                   <td className={`py-2 pr-3 text-right text-sm font-semibold ${moveClass}`}>{formatMove(stock.expected_return)}</td>
                   <td className="py-2 pr-3 text-right">{formatChance(stock.chance_up)}</td>
-                  <td className="py-2 text-right">{formatChance(stock.chance_down)}</td>
+                  <td className="py-2 pr-3 text-right">{formatChance(stock.chance_down)}</td>
+                  <td className="py-2 text-right">
+                    <ActualCell stock={stock} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -256,10 +343,13 @@ function PriceGroupPredictions() {
       ) : error ? (
         <div className={`${card} p-6 text-red-600 dark:text-red-400`}>{error}</div>
       ) : (
+        <>
+        <ResultSummary date={date} rising={rising} falling={falling} />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <MoveTable key={`up-${tableKey}`} title="Expected to Rise" stocks={rising} madeOn={madeOn} moveClass="text-emerald-600 dark:text-emerald-400" />
           <MoveTable key={`down-${tableKey}`} title="Expected to Fall" stocks={falling} madeOn={madeOn} moveClass="text-red-600 dark:text-red-400" />
         </div>
+        </>
       )}
     </div>
   );

@@ -93,7 +93,12 @@ async function getPriceGroupStocks({ date }) {
             -- Day candles are stored at 00:00 IST in UTC (18:30 the day
             -- before); +6h lands on the IST trading date, as dailyMovers does.
             to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day,
-            tv.avg_traded_value
+            tv.avg_traded_value,
+            -- What actually happened: the first close after the prediction
+            -- was made (the predicted day). NULL until that day's EOD sync.
+            ac.actual_close::float8 AS actual_close,
+            to_char(ac.actual_at + interval '6 hours', 'YYYY-MM-DD') AS actual_day,
+            (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return
      FROM stocks s
      JOIN companies c ON c.exchange = s.exchange AND c.symbol = s.symbol AND c.excluded_reason IS NULL
      -- Same rule as getPredictions: the close as of when the prediction was
@@ -121,6 +126,15 @@ async function getPriceGroupStocks({ date }) {
          LIMIT 20
        ) x
      ) tv ON true
+     LEFT JOIN LATERAL (
+       SELECT hp.close AS actual_close, hp.candle_timestamp AS actual_at
+       FROM historical_prices hp
+       WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
+         AND hp.candle_timestamp > s.predicted_at
+         AND hp.candle_timestamp < s.predicted_at + interval '10 days'
+       ORDER BY hp.candle_timestamp
+       LIMIT 1
+     ) ac ON true
      WHERE s.expected_return IS NOT NULL`,
     [date]
   );
