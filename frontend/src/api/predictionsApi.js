@@ -68,6 +68,11 @@ export const predictionsApi = {
     return data;
   },
 
+  getSignalAccuracy: async () => {
+    const { data } = await client.get("/api/accuracy/signals");
+    return data;
+  },
+
   getPriceGroupPerformance: async (from) => {
     const { data } = await client.get("/api/accuracy/price-groups", { params: { from } });
     return data;

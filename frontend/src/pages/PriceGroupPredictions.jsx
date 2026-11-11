@@ -16,36 +16,14 @@ function formatChance(value) {
   return value === null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
-// Signal rule: a clear lean one way, and an expected move bigger than the
-// ~0.3% round-trip trading cost. Both chances close = just a volatile
-// stock, no direction.
-const SIGNAL_GAP = 0.15;
-const TRADING_COST = 0.003;
-// "Liquid" = at least ₹20 crore traded per day on average (last 20 sessions).
-const LIQUID_MIN_VALUE = 2e8;
-// NSE series suffixes for trade-to-trade (BE, BZ) and SME (SM, ST) stocks.
-const THIN_SERIES = /-(BE|BZ|SM|ST)$/;
-
 const SIGNALS = {
   positive: { label: "Positive", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   negative: { label: "Negative", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
   none: { label: "No clear signal", className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
 };
 
-function signalFor(stock) {
-  if (stock.chance_up == null || stock.chance_down == null) return "none";
-  const gap = stock.chance_up - stock.chance_down;
-  if (gap >= SIGNAL_GAP && stock.expected_return > TRADING_COST) return "positive";
-  if (gap <= -SIGNAL_GAP && stock.expected_return < -TRADING_COST) return "negative";
-  return "none";
-}
-
-function isLiquid(stock) {
-  return !THIN_SERIES.test(stock.symbol) && (stock.avg_traded_value ?? 0) >= LIQUID_MIN_VALUE;
-}
-
 function SignalBadge({ stock }) {
-  const signal = SIGNALS[signalFor(stock)];
+  const signal = SIGNALS[stock.signal] || SIGNALS.none;
   return <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${signal.className}`}>{signal.label}</span>;
 }
 
@@ -143,6 +121,7 @@ function PriceGroupPredictions() {
   const [bandValue, setBandValue] = useState("high_risk");
   const [search, setSearch] = useState("");
   const [liquidOnly, setLiquidOnly] = useState(true);
+  const [signalFilter, setSignalFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -179,28 +158,33 @@ function PriceGroupPredictions() {
   // A search always shows its matches, even thin stocks -- otherwise
   // looking up a specific small stock would come back empty.
   const searching = search.trim() !== "";
-  const stocks = useMemo(() => (liquidOnly && !searching ? rows.filter(isLiquid) : rows), [rows, liquidOnly, searching]);
-  const band = PRICE_BANDS.find((item) => item.value === bandValue);
+  const stocks = useMemo(() => (liquidOnly && !searching ? rows.filter((s) => s.liquid) : rows), [rows, liquidOnly, searching]);
+  const band = bandValue === "all" ? null : PRICE_BANDS.find((item) => item.value === bandValue);
 
   const { rising, falling } = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const inGroup = stocks.filter(
       (stock) =>
-        matchesBand(stock, band) &&
+        (!band || matchesBand(stock, band)) &&
+        (signalFilter === "all" || stock.signal === signalFilter) &&
         (!needle || stock.symbol.toLowerCase().includes(needle) || stock.company_name?.toLowerCase().includes(needle))
     );
     return {
       rising: inGroup.filter((s) => s.expected_return > 0).sort((a, b) => b.expected_return - a.expected_return),
       falling: inGroup.filter((s) => s.expected_return < 0).sort((a, b) => a.expected_return - b.expected_return),
     };
-  }, [stocks, band, search]);
+  }, [stocks, band, search, signalFilter]);
 
   const counts = useMemo(
-    () => Object.fromEntries(PRICE_BANDS.map((item) => [item.value, stocks.filter((s) => matchesBand(s, item)).length])),
+    () => ({
+      all: stocks.length,
+      ...Object.fromEntries(PRICE_BANDS.map((item) => [item.value, stocks.filter((s) => matchesBand(s, item)).length])),
+    }),
     [stocks]
   );
+  const bandButtons = [{ value: "all", label: "All prices", range: "" }, ...PRICE_BANDS];
 
-  const tableKey = `${bandValue}-${madeOn}-${search}-${liquidOnly}`;
+  const tableKey = `${bandValue}-${madeOn}-${search}-${liquidOnly}-${signalFilter}`;
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -232,6 +216,12 @@ function PriceGroupPredictions() {
             <input type="checkbox" checked={liquidOnly} onChange={(e) => setLiquidOnly(e.target.checked)} />
             Only liquid stocks
           </label>
+          <select value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)} className={field} aria-label="Signal">
+            <option value="all">All signals</option>
+            <option value="positive">Positive only</option>
+            <option value="negative">Negative only</option>
+            <option value="none">No clear signal</option>
+          </select>
           <input
             type="date"
             value={date}
@@ -243,7 +233,7 @@ function PriceGroupPredictions() {
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {PRICE_BANDS.map((item) => (
+        {bandButtons.map((item) => (
           <button
             key={item.value}
             type="button"
@@ -255,7 +245,7 @@ function PriceGroupPredictions() {
             }`}
           >
             <span className="font-medium">{item.label}</span>
-            <span className="ml-1.5 opacity-75">{item.range}</span>
+            {item.range && <span className="ml-1.5 opacity-75">{item.range}</span>}
             <span className="ml-1.5 opacity-75">({counts[item.value]})</span>
           </button>
         ))}

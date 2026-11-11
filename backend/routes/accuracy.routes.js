@@ -62,4 +62,17 @@ router.get("/price-groups", async (req, res) => {
   }
 });
 
+/**
+ * Report card for the Price Groups Signal column (see getSignalAccuracy).
+ */
+router.get("/signals", async (req, res) => {
+  try {
+    const report = await predictionService.getSignalAccuracy();
+    return res.json({ success: true, results: report });
+  } catch (err) {
+    console.error("Signal accuracy error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

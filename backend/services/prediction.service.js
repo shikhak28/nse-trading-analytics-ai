@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { signalFor, isLiquid, TRADING_COST, VALID_DAY_SQL } = require("./signal");
 
 async function getPredictions({ symbol, exchange, horizon, date, sector, limit = 100, offset = 0 } = {}) {
   const conditions = [];
@@ -123,7 +124,83 @@ async function getPriceGroupStocks({ date }) {
      WHERE s.expected_return IS NOT NULL`,
     [date]
   );
-  return result.rows;
+  return result.rows.map((row) => ({ ...row, signal: signalFor(row), liquid: isLiquid(row) }));
+}
+
+/**
+ * Report card for the Signal: of the stocks it called Positive / Negative,
+ * how often the next day actually went that way, and the average next-day
+ * return. Same rule as the Price Groups page (signal.js), scored on every
+ * verified next_day prediction outside the known-bad days.
+ */
+async function getSignalAccuracy() {
+  const result = await db.query(
+    `WITH latest AS (
+       SELECT DISTINCT ON (p.exchange, p.symbol, p.predicted_at::date, p.target_label)
+              p.id, p.predicted_at, p.exchange, p.symbol, p.target_label, p.predicted_value
+       FROM predictions p
+       WHERE p.horizon = 'next_day' AND ${VALID_DAY_SQL}
+       ORDER BY p.exchange, p.symbol, p.predicted_at::date, p.target_label, p.predicted_at DESC
+     ),
+     stocks AS (
+       SELECT exchange, symbol, predicted_at::date AS day, max(predicted_at) AS predicted_at,
+              max(predicted_value) FILTER (WHERE target_label = 'next_day_return')::float8 AS expected_return,
+              max(predicted_value) FILTER (WHERE target_label = 'p_move_up_2pct')::float8 AS chance_up,
+              max(predicted_value) FILTER (WHERE target_label = 'p_move_down_2pct')::float8 AS chance_down,
+              max(id) FILTER (WHERE target_label = 'next_day_return') AS return_id
+       FROM latest
+       GROUP BY exchange, symbol, predicted_at::date
+     )
+     SELECT s.symbol, to_char(s.day, 'YYYY-MM-DD') AS day, s.expected_return, s.chance_up, s.chance_down,
+            v.realized_return::float8 AS realized_return, tv.avg_traded_value
+     FROM stocks s
+     JOIN prediction_verification v ON v.prediction_id = s.return_id
+     LEFT JOIN LATERAL (
+       SELECT avg(x.close * x.volume)::float8 AS avg_traded_value
+       FROM (
+         SELECT hp.close, hp.volume
+         FROM historical_prices hp
+         WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
+           AND hp.candle_timestamp <= s.predicted_at
+           AND hp.candle_timestamp >= s.predicted_at - interval '45 days'
+         ORDER BY hp.candle_timestamp DESC
+         LIMIT 20
+       ) x
+     ) tv ON true
+     WHERE abs(v.realized_return) <= 0.5`
+  );
+
+  const empty = () => ({ n: 0, hits: 0, sumReturn: 0 });
+  const buckets = { all: {}, liquid: {} };
+  const days = new Set();
+  for (const scope of Object.keys(buckets)) {
+    for (const sig of ["positive", "negative", "none"]) buckets[scope][sig] = empty();
+  }
+
+  for (const row of result.rows) {
+    const sig = signalFor(row);
+    const r = row.realized_return;
+    // Positive is right when the stock rose, Negative when it fell.
+    const hit = sig === "positive" ? r > 0 : sig === "negative" ? r < 0 : false;
+    days.add(row.day);
+    for (const scope of isLiquid(row) ? ["all", "liquid"] : ["all"]) {
+      const b = buckets[scope][sig];
+      b.n += 1;
+      b.hits += hit ? 1 : 0;
+      b.sumReturn += r;
+    }
+  }
+
+  const summarise = (b) => ({
+    n: b.n,
+    hit_rate: b.n ? b.hits / b.n : null,
+    avg_return: b.n ? b.sumReturn / b.n : null,
+  });
+  const out = {};
+  for (const [scope, sigs] of Object.entries(buckets)) {
+    out[scope] = Object.fromEntries(Object.entries(sigs).map(([sig, b]) => [sig, summarise(b)]));
+  }
+  return { days: [...days].sort(), tradingCost: TRADING_COST, ...out };
 }
 
 async function getSectors() {
@@ -144,7 +221,7 @@ async function getPredictionById(id) {
 }
 
 async function getVerification({ symbol, exchange, checkpoint, from, to, limit = 100, offset = 0 } = {}) {
-  const conditions = [];
+  const conditions = [VALID_DAY_SQL];
   const values = [];
 
   if (symbol) {
@@ -196,7 +273,7 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
   // The probability models almost never reach 50%, so their signal_hit mostly
   // counts stocks that simply didn't move 2%. They're scored by calibration
   // in getClassificationMetrics instead.
-  const conditions = ["p.target_label NOT IN ('p_move_up_2pct', 'p_move_down_2pct')"];
+  const conditions = ["p.target_label NOT IN ('p_move_up_2pct', 'p_move_down_2pct')", VALID_DAY_SQL];
   const values = [];
 
   if (horizon) {
@@ -256,6 +333,7 @@ async function getPriceGroupPerformance({ from }) {
        WHERE p.horizon = 'next_day' AND p.target_label = 'next_day_return'
          AND p.predicted_at >= $1::date
          AND abs(v.realized_return) <= 0.5
+         AND ${VALID_DAY_SQL}
        ORDER BY p.exchange, p.symbol, p.predicted_at::date, p.predicted_at DESC
      ),
      grouped AS (
@@ -308,7 +386,7 @@ async function getClassificationMetrics({ horizon = "next_day", targetLabel, bin
     SELECT p.predicted_value::float8 AS prob, v.actual_value::float8 AS actual
     FROM prediction_verification v
     JOIN predictions p ON p.id = v.prediction_id AND p.predicted_at = v.prediction_predicted_at
-    WHERE p.horizon = $1 AND p.target_label = $2`;
+    WHERE p.horizon = $1 AND p.target_label = $2 AND ${VALID_DAY_SQL}`;
 
   const [binsResult, summaryResult] = await Promise.all([
     db.query(
@@ -422,6 +500,7 @@ async function getRankings({ date, category } = {}) {
 module.exports = {
   getPriceGroupPerformance,
   getPriceGroupStocks,
+  getSignalAccuracy,
   getClassificationMetrics,
   getPredictions,
   getPredictionById,

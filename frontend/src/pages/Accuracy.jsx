@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { predictionsApi } from "../api/predictionsApi";
 import PriceGroupPerformance from "../components/PriceGroupPerformance";
+import SignalReportCard from "../components/SignalReportCard";
 
 const TARGET_LABELS = [
   { value: "", label: "All Targets" },
@@ -405,6 +406,8 @@ function Accuracy() {
           </div>
         </div>
       </div>
+
+      <SignalReportCard />
 
       {loading ? (
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
