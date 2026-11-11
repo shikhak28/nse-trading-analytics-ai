@@ -17,8 +17,12 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
     conditions.push(`p.horizon = $${values.length}`);
   }
   if (date) {
+    // A range, not predicted_at::date = $n -- casting the column hides it
+    // from partition pruning and the index, so every partition got scanned.
     values.push(date);
-    conditions.push(`p.predicted_at::date = $${values.length}`);
+    conditions.push(
+      `p.predicted_at >= $${values.length}::date AND p.predicted_at < $${values.length}::date + 1`
+    );
   }
   if (sector) {
     values.push(sector);
@@ -52,6 +56,57 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
      ORDER BY p.predicted_at DESC
      LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values
+  );
+  return result.rows;
+}
+
+/**
+ * One row per stock for the Price Group page: the three next_day targets
+ * pivoted into columns, and the close looked up once per stock (not once per
+ * target row). Skips the explanation JSON, which that page never shows. If
+ * the models ran twice that day, the latest value of each target wins.
+ */
+async function getPriceGroupStocks({ date }) {
+  const result = await db.query(
+    `WITH latest AS (
+       SELECT DISTINCT ON (p.exchange, p.symbol, p.target_label)
+              p.exchange, p.symbol, p.target_label, p.predicted_value, p.predicted_at
+       FROM predictions p
+       WHERE p.horizon = 'next_day'
+         AND p.predicted_at >= $1::date AND p.predicted_at < $1::date + 1
+       ORDER BY p.exchange, p.symbol, p.target_label, p.predicted_at DESC
+     ),
+     stocks AS (
+       SELECT exchange, symbol, max(predicted_at) AS predicted_at,
+              max(predicted_value) FILTER (WHERE target_label = 'next_day_return') AS expected_return,
+              max(predicted_value) FILTER (WHERE target_label = 'p_move_up_2pct') AS chance_up,
+              max(predicted_value) FILTER (WHERE target_label = 'p_move_down_2pct') AS chance_down
+       FROM latest
+       GROUP BY exchange, symbol
+     )
+     SELECT s.exchange, s.symbol, c.company_name, s.predicted_at,
+            s.expected_return::float8 AS expected_return,
+            s.chance_up::float8 AS chance_up,
+            s.chance_down::float8 AS chance_down,
+            lc.last_close::float8 AS last_close,
+            -- Day candles are stored at 00:00 IST in UTC (18:30 the day
+            -- before); +6h lands on the IST trading date, as dailyMovers does.
+            to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day
+     FROM stocks s
+     JOIN companies c ON c.exchange = s.exchange AND c.symbol = s.symbol AND c.excluded_reason IS NULL
+     -- Same rule as getPredictions: the close as of when the prediction was
+     -- made, with a 15-day floor so a long-halted stock reads as unpriced.
+     LEFT JOIN LATERAL (
+       SELECT hp.close AS last_close, hp.candle_timestamp AS last_close_at
+       FROM historical_prices hp
+       WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
+         AND hp.candle_timestamp <= s.predicted_at
+         AND hp.candle_timestamp >= s.predicted_at - interval '15 days'
+       ORDER BY hp.candle_timestamp DESC
+       LIMIT 1
+     ) lc ON true
+     WHERE s.expected_return IS NOT NULL`,
+    [date]
   );
   return result.rows;
 }
@@ -351,6 +406,7 @@ async function getRankings({ date, category } = {}) {
 
 module.exports = {
   getPriceGroupPerformance,
+  getPriceGroupStocks,
   getClassificationMetrics,
   getPredictions,
   getPredictionById,

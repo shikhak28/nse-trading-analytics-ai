@@ -52,7 +52,10 @@ def rank_category(ranking_date, category, target_label, ascending):
 
 
 def main():
-    ranking_date = date_cls.today()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", type=date_cls.fromisoformat, help="ranking date (default today)")
+    ranking_date = parser.parse_args().date or date_cls.today()
     print(f"Computing rankings for {ranking_date}...")
     for category, target_label, ascending in CATEGORIES:
         rank_category(ranking_date, category, target_label, ascending)

@@ -42,6 +42,24 @@ router.get("/sectors", async (req, res) => {
 });
 
 /**
+ * One row per stock for the Price Group page (see getPriceGroupStocks).
+ * Registered before "/:id" for the same reason as /sectors.
+ */
+router.get("/price-groups", async (req, res) => {
+  const date = req.query.date?.trim();
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ success: false, message: "date (YYYY-MM-DD) is required" });
+  }
+  try {
+    const stocks = await predictionService.getPriceGroupStocks({ date });
+    return res.json({ success: true, results: stocks });
+  } catch (err) {
+    console.error("Price group fetch error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
  * Single prediction by id, with its explanation payload.
  */
 router.get("/:id", async (req, res) => {

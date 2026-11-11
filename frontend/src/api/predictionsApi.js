@@ -18,6 +18,11 @@ export const predictionsApi = {
     return data;
   },
 
+  getPriceGroupStocks: async (date) => {
+    const { data } = await client.get("/api/predictions/price-groups", { params: { date } });
+    return data;
+  },
+
   getSectors: async () => {
     const { data } = await client.get("/api/predictions/sectors");
     return data;

@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
-import { PRICE_BANDS, matchesBand, mergeStockPredictions } from "../utils/priceBands";
+import { PRICE_BANDS, matchesBand } from "../utils/priceBands";
 import { formatDay, previousTradingDay, todayIso } from "../utils/tradingDays";
 
 const PAGE_SIZE = 20;
-
-// Three model targets per stock, and this page must not lose stocks to a
-// row cap when the universe grows.
-const ROW_LIMIT = 30000;
 
 const card = "rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm";
 const field = "rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm text-slate-900 dark:text-slate-100";
@@ -24,7 +20,7 @@ function formatPrice(value) {
   return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
-function MoveTable({ title, stocks, moveClass }) {
+function MoveTable({ title, stocks, moveClass, madeOn }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
   const pageStocks = stocks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -57,7 +53,17 @@ function MoveTable({ title, stocks, moveClass }) {
                     <div className="font-medium">{stock.symbol}</div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">{stock.exchange}</div>
                   </td>
-                  <td className="py-2 pr-3 text-right">{formatPrice(stock.last_close)}</td>
+                  <td className="py-2 pr-3 text-right">
+                    <div>{formatPrice(stock.last_close)}</div>
+                    {stock.last_close_day && stock.last_close_day !== madeOn && (
+                      <div
+                        className="text-[10px] text-amber-600 dark:text-amber-400"
+                        title="No candle for the prediction day was synced in time, so this is an older close."
+                      >
+                        as of {formatDay(stock.last_close_day)}
+                      </div>
+                    )}
+                  </td>
                   <td className={`py-2 pr-3 text-right text-sm font-semibold ${moveClass}`}>{formatMove(stock.expected_return)}</td>
                   <td className="py-2 pr-3 text-right">{formatChance(stock.chance_up)}</td>
                   <td className="py-2 text-right">{formatChance(stock.chance_down)}</td>
@@ -111,7 +117,7 @@ function PriceGroupPredictions() {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await predictionsApi.getPredictions({ horizon: "next_day", date: madeOn, limit: ROW_LIMIT });
+        const data = await predictionsApi.getPriceGroupStocks(madeOn);
         if (ignore) return;
         if (data.success) {
           setRows(data.results);
@@ -132,7 +138,7 @@ function PriceGroupPredictions() {
     };
   }, [madeOn]);
 
-  const stocks = useMemo(() => mergeStockPredictions(rows), [rows]);
+  const stocks = rows;
   const band = PRICE_BANDS.find((item) => item.value === bandValue);
 
   const { rising, falling } = useMemo(() => {
@@ -210,8 +216,8 @@ function PriceGroupPredictions() {
         <div className={`${card} p-6 text-red-600 dark:text-red-400`}>{error}</div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <MoveTable key={`up-${tableKey}`} title="Expected to Rise" stocks={rising} moveClass="text-emerald-600 dark:text-emerald-400" />
-          <MoveTable key={`down-${tableKey}`} title="Expected to Fall" stocks={falling} moveClass="text-red-600 dark:text-red-400" />
+          <MoveTable key={`up-${tableKey}`} title="Expected to Rise" stocks={rising} madeOn={madeOn} moveClass="text-emerald-600 dark:text-emerald-400" />
+          <MoveTable key={`down-${tableKey}`} title="Expected to Fall" stocks={falling} madeOn={madeOn} moveClass="text-red-600 dark:text-red-400" />
         </div>
       )}
     </div>

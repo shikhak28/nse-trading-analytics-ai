@@ -12,36 +12,3 @@ export function matchesBand(stock, band) {
   const price = Number(stock.last_close);
   return price >= band.min && price < band.max;
 }
-
-/**
- * The API returns one row per stock per model target; this folds them into
- * one record per stock. Rows arrive newest first, so if the models ran twice
- * that day the latest value wins. Stocks with no return estimate are dropped,
- * since they have no expected move to show.
- */
-export function mergeStockPredictions(rows) {
-  const stocks = new Map();
-  for (const row of rows) {
-    const key = `${row.exchange}:${row.symbol}`;
-    if (!stocks.has(key)) {
-      stocks.set(key, {
-        exchange: row.exchange,
-        symbol: row.symbol,
-        company_name: row.company_name,
-        last_close: row.last_close,
-        targets: {},
-      });
-    }
-    const { targets } = stocks.get(key);
-    if (!(row.target_label in targets)) targets[row.target_label] = Number(row.predicted_value);
-  }
-
-  return [...stocks.values()]
-    .filter((stock) => "next_day_return" in stock.targets)
-    .map(({ targets, ...stock }) => ({
-      ...stock,
-      expected_return: targets.next_day_return,
-      chance_up: targets.p_move_up_2pct ?? null,
-      chance_down: targets.p_move_down_2pct ?? null,
-    }));
-}
