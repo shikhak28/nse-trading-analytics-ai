@@ -4,6 +4,7 @@ const router = express.Router();
 
 const marketService = require("../services/market.service");
 const moversService = require("../services/movers.service");
+const trendsService = require("../services/trends.service");
 const dailyMoversService = require("../services/dailyMovers.service");
 const authService = require("../services/auth.service");
 const kite = require("../config/kite");
@@ -95,6 +96,20 @@ router.get("/historical/stored", async (req, res) => {
  * from Redis's live quote cache (populated continuously by liveTicker's
  * subscribeAllTracked), not Kite directly.
  */
+/**
+ * Stocks that closed higher every month for 3 months, and lower every month
+ * for 6 months (see trends.service.js).
+ */
+router.get("/trends", async (req, res) => {
+    try {
+        const trends = await trendsService.getTrends();
+        return res.json({ success: true, ...trends });
+    } catch (err) {
+        console.error("Trends fetch error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 router.get("/movers", async (req, res) => {
     try {
         const { type, exchange, limit } = req.query;

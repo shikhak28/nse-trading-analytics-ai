@@ -5,17 +5,22 @@ import { useAuth } from "./hooks/useAuth";
 import { ThemeProvider } from "./context/ThemeContext";
 import ConnectZerodha from "./components/Auth/ConnectZerodha";
 import AppLayout from "./components/AppLayout";
-import DashboardPage from "./pages/DashboardPage";
-import Market from "./pages/Market";
-import Agent from "./pages/Agent";
-import Trading from "./pages/Trading";
-import History from "./pages/History";
-import Profile from "./pages/Profile";
-import Predictions from "./pages/Predictions";
-import PriceGroupPredictions from "./pages/PriceGroupPredictions";
-import Verification from "./pages/Verification";
-import Accuracy from "./pages/Accuracy";
-import ModelHealth from "./pages/ModelHealth";
+import { lazy } from "react";
+
+// Each page loads only when opened, so the first visit doesn't download
+// every page (and its chart libraries) up front.
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const Market = lazy(() => import("./pages/Market"));
+const Agent = lazy(() => import("./pages/Agent"));
+const Trading = lazy(() => import("./pages/Trading"));
+const History = lazy(() => import("./pages/History"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Predictions = lazy(() => import("./pages/Predictions"));
+const PriceGroupPredictions = lazy(() => import("./pages/PriceGroupPredictions"));
+const Verification = lazy(() => import("./pages/Verification"));
+const Accuracy = lazy(() => import("./pages/Accuracy"));
+const ModelHealth = lazy(() => import("./pages/ModelHealth"));
+const TrendStocks = lazy(() => import("./pages/TrendStocks"));
 
 function AuthenticatedRoutes() {
   return (
@@ -29,6 +34,7 @@ function AuthenticatedRoutes() {
         <Route path="/history/:symbol" element={<History />} />
         <Route path="/predictions" element={<Predictions />} />
         <Route path="/price-groups" element={<PriceGroupPredictions />} />
+        <Route path="/trends" element={<TrendStocks />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />

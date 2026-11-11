@@ -20,6 +20,11 @@ export const marketApi = {
     return data;
   },
 
+  getTrends: async () => {
+    const { data } = await client.get("/market/trends");
+    return data;
+  },
+
   fetchHistoricalSummary: async () => {
     const { data } = await client.get("/market/historical/summary");
     return data;

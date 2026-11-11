@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Outlet, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
@@ -39,7 +40,9 @@ const AppLayout = () => {
           </button>
         </header>
         <main className="flex-1 overflow-auto">
-          <Outlet />
+          <Suspense fallback={<div className="p-8 text-sm text-slate-500">Loading...</div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>
