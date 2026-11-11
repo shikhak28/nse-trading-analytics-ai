@@ -8,8 +8,6 @@ const { getPriceGroupStocks } = require("./prediction.service");
 const PERIODS = [
   { key: "1w", label: "1 week", stepLabel: "day", step: 1, steps: 5 },
   { key: "1m", label: "1 month", stepLabel: "week", step: 5, steps: 4 },
-  { key: "3m", label: "3 months", stepLabel: "month", step: 21, steps: 3 },
-  { key: "6m", label: "6 months", stepLabel: "month", step: 21, steps: 6 },
 ];
 const MAX_LOOKBACK = Math.max(...PERIODS.map((p) => p.step * p.steps));
 
@@ -39,7 +37,7 @@ async function computeTrends() {
                 row_number() OVER (ORDER BY hp.candle_timestamp DESC) - 1 AS k
          FROM historical_prices hp
          WHERE hp.exchange = c.exchange AND hp.symbol = c.symbol AND hp.interval = 'day'
-           AND hp.candle_timestamp >= now() - interval '210 days'
+           AND hp.candle_timestamp >= now() - interval '60 days'
          ORDER BY hp.candle_timestamp DESC
          LIMIT ${MAX_LOOKBACK + 1}
        ) x

@@ -68,7 +68,7 @@ function TrendStocks() {
   const [minValue, setMinValue] = useState(0);
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState("trend");
-  const [period, setPeriod] = useState("3m");
+  const [period, setPeriod] = useState("1m");
   const [signalFilter, setSignalFilter] = useState("all");
 
   useEffect(() => {
@@ -102,12 +102,10 @@ function TrendStocks() {
 
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
   const pageStocks = stocks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const info = data?.periodInfo?.find((p) => p.key === period) ?? { label: "3 months", stepLabel: "month", steps: 3 };
+  const info = data?.periodInfo?.find((p) => p.key === period) ?? { label: "1 month", stepLabel: "week", steps: 4 };
   const periodButtons = data?.periodInfo ?? [
     { key: "1w", label: "1 week" },
     { key: "1m", label: "1 month" },
-    { key: "3m", label: "3 months" },
-    { key: "6m", label: "6 months" },
   ];
 
   const tabs = [
@@ -124,7 +122,7 @@ function TrendStocks() {
             {view === "rising"
               ? `Stocks that closed higher every ${info.stepLabel} for the last ${info.label}.`
               : `Stocks that closed lower every ${info.stepLabel} for the last ${info.label}.`}{" "}
-            A week is 5 trading days, a month 21. Past trend, not a forecast.
+            A week is 5 trading days. Past trend, not a forecast.
           </p>
           {data?.predictionDay && (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -233,7 +231,7 @@ function TrendStocks() {
       {error ? (
         <div className={`${card} p-6 text-red-600 dark:text-red-400`}>{error}</div>
       ) : !data ? (
-        <div className={`${card} p-6`}>Scanning 7 months of prices... (first load can take a little while)</div>
+        <div className={`${card} p-6`}>Scanning recent prices... (first load can take a little while)</div>
       ) : (
         <div className={`${card} p-5`}>
           <div className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">{stocks.length} stocks</div>
