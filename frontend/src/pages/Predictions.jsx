@@ -52,7 +52,7 @@ function ActualMove({ row, dir }) {
   }
   const right = Math.sign(row.actual_return) === dir;
   return (
-    <span className="inline-flex items-center gap-1 text-xs" title={right ? "Moved the predicted way" : "Moved the other way"}>
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs" title={right ? "Moved the predicted way" : "Moved the other way"}>
       <span className="text-[11px] text-slate-400">Actual</span>
       <span className={`font-semibold ${row.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
         {formatMove(row.actual_return)}
@@ -89,32 +89,28 @@ function PredictionRow({ row, badgeClass, arrow }) {
 
   return (
     <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-xs font-medium">{row.symbol}</div>
+      {/* Line 1: stock + model badge. Line 2: expected vs actual. Two lines
+          so it still fits the narrow Confidence Tiers columns. */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-xs font-medium">{row.symbol}</div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {row.exchange}
             {row.last_close !== null && row.last_close !== undefined &&
               ` · ₹${Number(row.last_close).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {topFeatures?.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setExpanded((e) => !e)}
-              className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              title="Why?"
-            >
-              ⓘ Why
-            </button>
-          )}
-          <span className="text-[11px] text-slate-400">{row.target_label === "next_day_return" ? "Expected" : "Chance of 2%"}</span>
-          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClass}`}>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="text-[11px] text-slate-400">{row.target_label === "next_day_return" ? "Expected" : "Chance"}</span>
+          <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>
             {arrow} {formatPercent(row.predicted_value)}
           </span>
+        </div>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {row.target_label !== "next_day_return" && row.expected_return != null && (
-            <span className="inline-flex items-center gap-1 text-xs" title="Model's expected % move for the day">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs" title="Model's expected % move for the day">
               <span className="text-[11px] text-slate-400">Expected</span>
               <span className={`font-semibold ${row.expected_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                 {formatMove(row.expected_return)}
@@ -123,6 +119,16 @@ function PredictionRow({ row, badgeClass, arrow }) {
           )}
           <ActualMove row={row} dir={arrow === "▲" ? 1 : -1} />
         </div>
+        {topFeatures?.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            title="Why?"
+          >
+            ⓘ Why
+          </button>
+        )}
       </div>
 
       {expanded && topFeatures?.length > 0 && (
@@ -198,7 +204,7 @@ function TierSection({ title, rankedRows, badgeClass, arrow }) {
   return (
     <div>
       <h2 className="mb-3 text-base font-medium">{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
         {CONFIDENCE_TIERS.map((tier) => {
           const rows = rankedRows.filter(
             (row) => Number(row.predicted_value) >= tier.min && Number(row.predicted_value) < tier.max
