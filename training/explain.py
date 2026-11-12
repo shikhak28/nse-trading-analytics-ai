@@ -45,6 +45,11 @@ FEATURE_LABELS = {
     "breadth_above_50dma": "Market breadth",
     "sector_strength_5": "Sector strength",
     "stock_vs_sector_5": "Stock vs its sector",
+    "green_streak": "Days in a row up or down",
+    "dist_high_20": "Distance from 20-day high",
+    "dist_high_52w": "Distance from 52-week high",
+    "volume_trend_5_20": "Recent volume vs usual",
+    "up_down_volume_10": "Volume on up days vs down days",
 }
 
 TOP_K = 3

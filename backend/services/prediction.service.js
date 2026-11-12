@@ -321,7 +321,7 @@ async function getAccuracy({ groupBy = "day", horizon, targetLabel } = {}) {
   // The probability models almost never reach 50%, so their signal_hit mostly
   // counts stocks that simply didn't move 2%. They're scored by calibration
   // in getClassificationMetrics instead.
-  const conditions = ["p.target_label NOT IN ('p_move_up_2pct', 'p_move_down_2pct')", VALID_DAY_SQL];
+  const conditions = ["p.target_label NOT IN ('p_move_up_2pct', 'p_move_down_2pct', 'p_move_up_4pct')", VALID_DAY_SQL];
   const values = [];
 
   if (horizon) {
@@ -417,7 +417,7 @@ async function getPriceGroupPerformance({ from }) {
   return { topN: GROUP_TOP_N, groups: result.rows };
 }
 
-const CLASSIFICATION_TARGETS = new Set(["p_move_up_2pct", "p_move_down_2pct"]);
+const CLASSIFICATION_TARGETS = new Set(["p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"]);
 
 // Calibration + confusion matrix for a binary target, over every verified
 // prediction. Calibration bins are quantile bins (ntile) rather than equal-

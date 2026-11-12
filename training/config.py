@@ -23,7 +23,7 @@ HORIZONS = ["eod", "next_day"]
 
 TARGET_LABELS = {
     "eod": ["eod_return"],
-    "next_day": ["next_day_return", "p_move_up_2pct", "p_move_down_2pct"],
+    "next_day": ["next_day_return", "p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"],
 }
 
 ARTIFACTS_DIR = Path(__file__).resolve().parent / "artifacts"

@@ -70,7 +70,7 @@ def predict_for_target(horizon, target, as_of, predicted_at):
     model = joblib.load(model_row["artifact_path"])
     X = latest_per_symbol[columns]
 
-    is_classification = target in {"p_move_up_2pct", "p_move_down_2pct"}
+    is_classification = target in {"p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"}
     if is_classification:
         proba = model.predict_proba(X)[:, 1]
         predicted_value = proba
@@ -84,7 +84,7 @@ def predict_for_target(horizon, target, as_of, predicted_at):
 
     explainer = build_explainer(model, is_classification)
     shap_values = compute_shap_batch(explainer, X)
-    direction = "up" if target == "p_move_up_2pct" else "down" if target == "p_move_down_2pct" else "return"
+    direction = "up" if target in ("p_move_up_2pct", "p_move_up_4pct") else "down" if target == "p_move_down_2pct" else "return"
 
     rows = []
     for i, (_, row) in enumerate(latest_per_symbol.iterrows()):

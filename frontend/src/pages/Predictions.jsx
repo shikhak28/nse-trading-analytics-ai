@@ -24,7 +24,8 @@ const CONFIDENCE_TIERS = [
   { label: "5-10%", min: 0.05, max: 0.10 },
   { label: "10-15%", min: 0.10, max: 0.15 },
   { label: "15-30%", min: 0.15, max: 0.30 },
-  { label: "30%+", min: 0.30, max: Infinity },
+  { label: "30-50%", min: 0.30, max: 0.50 },
+  { label: "50%+", min: 0.50, max: Infinity },
 ];
 
 function matchesSearch(row, search) {
@@ -67,11 +68,11 @@ function ActualMove({ row, dir }) {
 }
 
 // "12 of 20 went up · 3 hit +2% · avg +0.40%" for a list, once results exist.
-function ListScore({ rows, dir }) {
+function ListScore({ rows, dir, hitPct = 0.02 }) {
   const done = rows.filter((r) => r.actual_return != null);
   if (done.length === 0) return null;
   const right = done.filter((r) => Math.sign(r.actual_return) === dir).length;
-  const hit = done.filter((r) => r.actual_return * dir >= 0.02).length;
+  const hit = done.filter((r) => r.actual_return * dir >= hitPct).length;
   const avg = done.reduce((sum, r) => sum + r.actual_return, 0) / done.length;
   return (
     <div className="mb-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-xs">
@@ -79,7 +80,7 @@ function ListScore({ rows, dir }) {
         {right} of {done.length}
       </span>{" "}
       went {dir > 0 ? "up" : "down"} ({Math.round((right / done.length) * 100)}%)
-      <span className="text-slate-500 dark:text-slate-400"> · {hit} moved {dir > 0 ? "+" : "−"}2% or more · avg actual </span>
+      <span className="text-slate-500 dark:text-slate-400"> · {hit} moved {dir > 0 ? "+" : "−"}{Math.round(hitPct * 100)}% or more · avg actual </span>
       <span className={avg >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{formatMove(avg)}</span>
     </div>
   );
@@ -162,7 +163,7 @@ function sortRows(rows, sortBy) {
   });
 }
 
-function PredictionList({ title, rows: unsortedRows, badgeClass, arrow, sortBy = "model", pageSize = PAGE_SIZE }) {
+function PredictionList({ title, rows: unsortedRows, badgeClass, arrow, sortBy = "model", hitPct, pageSize = PAGE_SIZE }) {
   const rows = useMemo(() => sortRows(unsortedRows, sortBy), [unsortedRows, sortBy]);
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -180,7 +181,7 @@ function PredictionList({ title, rows: unsortedRows, badgeClass, arrow, sortBy =
         <h2 className="text-sm font-medium">{title}</h2>
         <span className="text-[11px] text-slate-500 dark:text-slate-400">{rows.length} companies</span>
       </div>
-      <ListScore rows={rows} dir={arrow === "▲" ? 1 : -1} />
+      <ListScore rows={rows} dir={arrow === "▲" ? 1 : -1} hitPct={hitPct} />
 
       {rows.length === 0 ? (
         <div className="py-8 text-center text-xs text-slate-500 dark:text-slate-400">No companies in this range.</div>
@@ -221,11 +222,11 @@ function PredictionList({ title, rows: unsortedRows, badgeClass, arrow, sortBy =
   );
 }
 
-function TierSection({ title, rankedRows, badgeClass, arrow, sortBy }) {
+function TierSection({ title, rankedRows, badgeClass, arrow, sortBy, hitPct }) {
   return (
     <div>
       <h2 className="mb-3 text-base font-medium">{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
         {CONFIDENCE_TIERS.map((tier) => {
           const rows = rankedRows.filter(
             (row) => Number(row.predicted_value) >= tier.min && Number(row.predicted_value) < tier.max
@@ -238,6 +239,7 @@ function TierSection({ title, rankedRows, badgeClass, arrow, sortBy }) {
               badgeClass={badgeClass}
               arrow={arrow}
               sortBy={sortBy}
+              hitPct={hitPct}
               pageSize={TIER_PAGE_SIZE}
             />
           );
@@ -312,7 +314,7 @@ function Predictions() {
     return () => clearInterval(id);
   }, [hasLive, madeOn, sector]);
 
-  const { rankedRising, rankedFalling, expectedGainers, expectedLosers } = useMemo(() => {
+  const { rankedRising, rankedFalling, rankedRising4, expectedGainers, expectedLosers } = useMemo(() => {
     // Every row also carries the stock's expected % move (next_day_return),
     // so the chance lists can show expected vs actual side by side.
     const expected = new Map(
@@ -331,6 +333,7 @@ function Predictions() {
     return {
       rankedRising: rank("p_move_up_2pct", 1),
       rankedFalling: rank("p_move_down_2pct", 1),
+      rankedRising4: rank("p_move_up_4pct", 1),
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
@@ -461,6 +464,16 @@ function Predictions() {
                 sortBy={sortBy}
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
+              {rankedRising4.length > 0 && (
+                <PredictionList
+                  title="Likely to Rise ≥4%"
+                  rows={rankedRising4.slice(0, TOP_N)}
+                  arrow="▲"
+                  sortBy={sortBy}
+                  hitPct={0.04}
+                  badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                />
+              )}
             </div>
           ) : (
             <div className="space-y-8">
@@ -478,6 +491,16 @@ function Predictions() {
                 sortBy={sortBy}
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
+              {rankedRising4.length > 0 && (
+                <TierSection
+                  title="Likely to Rise ≥4% -- by confidence"
+                  rankedRows={rankedRising4}
+                  arrow="▲"
+                  sortBy={sortBy}
+                  hitPct={0.04}
+                  badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                />
+              )}
             </div>
           )}
 

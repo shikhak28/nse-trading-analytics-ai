@@ -19,7 +19,8 @@ import pandas as pd
 
 import db
 
-CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
+CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"}
+BIG_MOVE_THRESHOLD = 0.04
 MOVE_THRESHOLD = 0.02
 CANDLE_DATE_OFFSET = pd.Timedelta(hours=6)
 WRITE_BATCH_SIZE = 2000
@@ -68,7 +69,11 @@ def verify_row(pred):
     if pred["target_label"] in CLASSIFICATION_TARGETS:
         actual_up = actual_return >= MOVE_THRESHOLD
         actual_down = actual_return <= -MOVE_THRESHOLD
-        actual_binary = actual_up if pred["target_label"] == "p_move_up_2pct" else actual_down
+        actual_binary = {
+            "p_move_up_2pct": actual_up,
+            "p_move_down_2pct": actual_down,
+            "p_move_up_4pct": actual_return >= BIG_MOVE_THRESHOLD,
+        }[pred["target_label"]]
         actual_value = float(actual_binary)
         error = actual_value - pred["predicted_value"]
         signal_hit = (pred["predicted_value"] >= 0.5) == actual_binary
