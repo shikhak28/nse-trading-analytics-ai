@@ -1,6 +1,38 @@
 const db = require("../config/db");
 const { signalFor, isLiquid, TRADING_COST, VALID_DAY_SQL } = require("./signal");
 
+// Average ₹ traded per day and the typical daily move (std of close-to-close
+// returns) over the 20 sessions up to the prediction, for row alias `a`.
+// 21 candles give 20 returns.
+function tradingStatsLateral(a) {
+  return `LEFT JOIN LATERAL (
+       SELECT avg(x.close * x.volume) FILTER (WHERE x.rn <= 20)::float8 AS avg_traded_value,
+              stddev_samp(x.ret)::float8 AS daily_vol
+       FROM (
+         SELECT y.close, y.volume,
+                row_number() OVER (ORDER BY y.candle_timestamp DESC) AS rn,
+                y.close / NULLIF(lag(y.close) OVER (ORDER BY y.candle_timestamp), 0) - 1 AS ret
+         FROM (
+           SELECT hp.close, hp.volume, hp.candle_timestamp
+           FROM historical_prices hp
+           WHERE hp.exchange = ${a}.exchange AND hp.symbol = ${a}.symbol AND hp.interval = 'day'
+             AND hp.candle_timestamp <= ${a}.predicted_at
+             AND hp.candle_timestamp >= ${a}.predicted_at - interval '45 days'
+           ORDER BY hp.candle_timestamp DESC
+           LIMIT 21
+         ) y
+       ) x
+     ) tv ON true`;
+}
+
+// Likely range for the day: expected move ± one typical daily move. About
+// two days in three land inside it (one standard deviation).
+function withRange(row) {
+  if (row.daily_vol == null || row.expected_return == null) return { ...row, likely_low: null, likely_high: null };
+  const er = Number(row.expected_return);
+  return { ...row, likely_low: er - row.daily_vol, likely_high: er + row.daily_vol };
+}
+
 async function getPredictions({ symbol, exchange, horizon, date, sector, limit = 100, offset = 0 } = {}) {
   const conditions = [];
   const values = [];
@@ -40,7 +72,8 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
             p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
             c.company_name, c.sector, lc.last_close, lc.last_volume::float8 AS last_volume,
             -- What actually happened on the predicted day (NULL until its EOD sync).
-            (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return
+            (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return,
+            tv.daily_vol
      FROM predictions p
      JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol AND c.excluded_reason IS NULL
      -- Close as of when the prediction was made, so an old date is grouped by
@@ -64,6 +97,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
        ORDER BY hp.candle_timestamp
        LIMIT 1
      ) ac ON true
+     ${tradingStatsLateral("p")}
      ${where}
      ORDER BY p.predicted_at DESC
      LIMIT $${values.length - 1} OFFSET $${values.length}`,
@@ -105,7 +139,7 @@ async function getPriceGroupStocks({ date }) {
             -- Day candles are stored at 00:00 IST in UTC (18:30 the day
             -- before); +6h lands on the IST trading date, as dailyMovers does.
             to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day,
-            tv.avg_traded_value,
+            tv.avg_traded_value, tv.daily_vol,
             -- What actually happened: the first close after the prediction
             -- was made (the predicted day). NULL until that day's EOD sync.
             ac.actual_close::float8 AS actual_close,
@@ -124,20 +158,8 @@ async function getPriceGroupStocks({ date }) {
        ORDER BY hp.candle_timestamp DESC
        LIMIT 1
      ) lc ON true
-     -- Average ₹ traded per day over the 20 sessions up to the prediction,
-     -- so the page can hide stocks too thin to trade at the shown price.
-     LEFT JOIN LATERAL (
-       SELECT avg(x.close * x.volume)::float8 AS avg_traded_value
-       FROM (
-         SELECT hp.close, hp.volume
-         FROM historical_prices hp
-         WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
-           AND hp.candle_timestamp <= s.predicted_at
-           AND hp.candle_timestamp >= s.predicted_at - interval '45 days'
-         ORDER BY hp.candle_timestamp DESC
-         LIMIT 20
-       ) x
-     ) tv ON true
+     -- Liquidity and typical daily move (see tradingStatsLateral).
+     ${tradingStatsLateral("s")}
      LEFT JOIN LATERAL (
        SELECT hp.close AS actual_close, hp.candle_timestamp AS actual_at
        FROM historical_prices hp
@@ -150,7 +172,7 @@ async function getPriceGroupStocks({ date }) {
      WHERE s.expected_return IS NOT NULL`,
     [date]
   );
-  return result.rows.map((row) => ({ ...row, signal: signalFor(row), liquid: isLiquid(row) }));
+  return result.rows.map((row) => withRange({ ...row, signal: signalFor(row), liquid: isLiquid(row) }));
 }
 
 /**

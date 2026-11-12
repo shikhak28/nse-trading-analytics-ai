@@ -7,3 +7,10 @@ export function formatVolume(value) {
   if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
   return String(Math.round(v));
 }
+
+// "−3.1% to +3.4%" for a likely-range pair (fractions), or "—".
+export function formatRange(low, high) {
+  if (low == null || high == null) return "—";
+  const f = (v) => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(1)}%`;
+  return `${f(low)} to ${f(high)}`;
+}

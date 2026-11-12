@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
-import { formatVolume } from "../utils/volume";
+import { formatRange, formatVolume } from "../utils/volume";
 import { formatDay, isTradingDay, previousTradingDay, todayIso } from "../utils/tradingDays";
 
 const PAGE_SIZE = 20;
@@ -118,6 +118,11 @@ function PredictionRow({ row, badgeClass, arrow }) {
               <span className={`font-semibold ${row.expected_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
                 {formatMove(row.expected_return)}
               </span>
+            </span>
+          )}
+          {row.expected_return != null && row.daily_vol != null && (
+            <span className="whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400" title="Expected move ± this stock's typical daily move (last 20 days). About 2 days in 3 end inside.">
+              Range {formatRange(row.expected_return - row.daily_vol, row.expected_return + row.daily_vol)}
             </span>
           )}
           <ActualMove row={row} dir={arrow === "▲" ? 1 : -1} />

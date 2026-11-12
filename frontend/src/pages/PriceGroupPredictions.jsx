@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
 import { PRICE_BANDS, matchesBand } from "../utils/priceBands";
-import { formatVolume } from "../utils/volume";
+import { formatRange, formatVolume } from "../utils/volume";
 import { formatDay, previousTradingDay, todayIso } from "../utils/tradingDays";
 
 const PAGE_SIZE = 20;
@@ -144,6 +144,7 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                 <th className="pb-2 pr-3 text-right font-medium">Last close</th>
                 <th className="pb-2 pr-3 text-right font-medium" title="Shares traded in the last session">Volume</th>
                 <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
+                <th className="pb-2 pr-3 text-right font-medium" title="Expected move ± this stock's typical daily move (last 20 days). About 2 days in 3 end inside.">Likely range</th>
                 <th className="pb-2 pr-3 text-right font-medium">Actual move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Chance of +2%</th>
                 <th className="pb-2 text-right font-medium">Chance of −2%</th>
@@ -172,6 +173,7 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                   </td>
                   <td className="py-2 pr-3 text-right">{formatVolume(stock.last_volume)}</td>
                   <td className={`py-2 pr-3 text-right text-sm font-semibold ${moveClass}`}>{formatMove(stock.expected_return)}</td>
+                  <td className="whitespace-nowrap py-2 pr-3 text-right text-slate-500 dark:text-slate-400">{formatRange(stock.likely_low, stock.likely_high)}</td>
                   <td className="py-2 pr-3 text-right">
                     <ActualCell stock={stock} />
                   </td>

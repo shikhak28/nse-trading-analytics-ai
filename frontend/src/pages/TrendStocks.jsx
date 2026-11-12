@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { marketApi } from "../api/marketApi";
-import { formatVolume } from "../utils/volume";
+import { formatRange, formatVolume } from "../utils/volume";
 import { formatDay, previousTradingDay } from "../utils/tradingDays";
 
 const PAGE_SIZE = 25;
@@ -351,6 +351,7 @@ function TrendStocks() {
                     <th className="pb-2 pr-3 font-medium">Each {info.stepLabel}</th>
                     <SortHeader label="Signal" sortKey="signal" sort={sort} onSort={onSort} align="left" />
                     <SortHeader label="Expected move" sortKey="expected_return" sort={sort} onSort={onSort} />
+                    <th className="pb-2 pr-3 text-right font-medium" title="Expected move ± this stock's typical daily move (last 20 days). About 2 days in 3 end inside.">Likely range</th>
                     <SortHeader label="Actual move" sortKey="actual_return" sort={sort} onSort={onSort} title="What the predicted day actually did" />
                     <SortHeader label="Avg traded/day" sortKey="avg_traded_value" sort={sort} onSort={onSort} />
                   </tr>
@@ -391,6 +392,7 @@ function TrendStocks() {
                       >
                         {s.expected_return == null ? "—" : `${s.expected_return >= 0 ? "+" : ""}${(s.expected_return * 100).toFixed(2)}%`}
                       </td>
+                      <td className="whitespace-nowrap py-2 pr-3 text-right text-slate-500 dark:text-slate-400">{formatRange(s.likely_low, s.likely_high)}</td>
                       <td className="py-2 pr-3 text-right">
                         <ActualCell s={s} />
                       </td>

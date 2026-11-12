@@ -150,6 +150,8 @@ async function withPredictions(data, asOf = null) {
       chance_up: p?.chance_up ?? null,
       chance_down: p?.chance_down ?? null,
       signal: p?.signal ?? null,
+      likely_low: p?.likely_low ?? null,
+      likely_high: p?.likely_high ?? null,
       // What the predicted day actually did (live while it's trading).
       actual_return: p?.actual_return ?? null,
       actual_live: p?.actual_live ?? false,
