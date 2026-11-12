@@ -265,6 +265,8 @@ function Predictions() {
   const [search, setSearch] = useState("");
   // Hide penny stocks below this last close (0 = show all).
   const [minPrice, setMinPrice] = useState(100);
+  // Liquid = ≥₹20 Cr traded/day and not an SME / trade-to-trade series.
+  const [liquidOnly, setLiquidOnly] = useState(true);
   const [sortBy, setSortBy] = useState("model");
 
   const madeOn = previousTradingDay(date);
@@ -329,6 +331,7 @@ function Predictions() {
     const searched = predictions
       .filter((row) => matchesSearch(row, search))
       .filter((row) => searching || !minPrice || Number(row.last_close) >= minPrice)
+      .filter((row) => searching || !liquidOnly || row.liquid)
       .map((row) => ({ ...row, expected_return: expected.get(`${row.exchange}:${row.symbol}`) ?? null }));
     const rank = (label, direction) =>
       searched
@@ -341,7 +344,7 @@ function Predictions() {
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
-  }, [predictions, search, minPrice]);
+  }, [predictions, search, minPrice, liquidOnly]);
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -409,6 +412,17 @@ function Predictions() {
             <option value={50}>Hide under ₹50</option>
             <option value={80}>Hide under ₹80</option>
             <option value={100}>Hide under ₹100</option>
+          </select>
+
+          <select
+            value={liquidOnly ? "liquid" : "all"}
+            onChange={(e) => setLiquidOnly(e.target.value === "liquid")}
+            aria-label="Liquid stocks only"
+            title="Liquid = ₹20 Cr+ traded per day, not -SM/-ST/-BE/-BZ"
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value="liquid">Only liquid stocks</option>
+            <option value="all">All stocks</option>
           </select>
 
           <select

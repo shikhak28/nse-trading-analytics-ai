@@ -73,7 +73,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
             c.company_name, c.sector, lc.last_close, lc.last_volume::float8 AS last_volume,
             -- What actually happened on the predicted day (NULL until its EOD sync).
             (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return,
-            tv.daily_vol
+            tv.daily_vol, tv.avg_traded_value
      FROM predictions p
      JOIN companies c ON c.exchange = p.exchange AND c.symbol = p.symbol AND c.excluded_reason IS NULL
      -- Close as of when the prediction was made, so an old date is grouped by
@@ -103,7 +103,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
      LIMIT $${values.length - 1} OFFSET $${values.length}`,
     values
   );
-  return result.rows;
+  return result.rows.map((row) => ({ ...row, liquid: isLiquid(row) }));
 }
 
 /**
