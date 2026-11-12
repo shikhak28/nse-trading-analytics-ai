@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 MOVE_THRESHOLD = 0.02
+BIG_MOVE_THRESHOLD = 0.04
 
 
 def compute_labels(df):
@@ -34,9 +35,10 @@ def compute_labels(df):
         "next_day_return": next_day_return,
         "p_move_up_2pct": (next_day_return >= MOVE_THRESHOLD).astype(float),
         "p_move_down_2pct": (next_day_return <= -MOVE_THRESHOLD).astype(float),
+        "p_move_up_4pct": (next_day_return >= BIG_MOVE_THRESHOLD).astype(float),
     }).set_index("candle_timestamp")
     # last row has no "tomorrow" yet -- can't have a label.
-    next_day.loc[next_day["next_day_return"].isna(), ["p_move_up_2pct", "p_move_down_2pct"]] = np.nan
+    next_day.loc[next_day["next_day_return"].isna(), ["p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"]] = np.nan
 
     # eod: today's (t) own intraday open->close return, but attributed to
     # day t-1's snapshot -- that's the last data a premarket prediction on

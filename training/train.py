@@ -31,7 +31,7 @@ from config import ARTIFACTS_DIR, CACHE_DIR, FEATURE_SET_VERSION
 from evaluate import brier_score, information_coefficient, liquidity_report, top_decile_backtest
 from features import FEATURE_SETS, TRADED_VALUE_COLUMN
 
-CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct"}
+CLASSIFICATION_TARGETS = {"p_move_up_2pct", "p_move_down_2pct", "p_move_up_4pct"}
 SHORT_SIDE_TARGETS = {"p_move_down_2pct"}
 
 FOLD_MONTHS = 2
@@ -143,6 +143,17 @@ def main():
 
     if is_classification:
         metrics["brier_score"] = brier_score(all_val_true, all_val_pred)
+        # How often a "chance >= X" call actually came true (walk-forward).
+        true_arr, pred_arr = np.asarray(all_val_true), np.asarray(all_val_pred)
+        print(f"\nBase rate (how often it happens at all): {true_arr.mean() * 100:.1f}%")
+        thresholds = {}
+        for t in (0.3, 0.4, 0.5, 0.6):
+            hit = pred_arr >= t
+            n = int(hit.sum())
+            precision = float(true_arr[hit].mean()) if n else None
+            thresholds[str(t)] = {"calls": n, "precision": precision}
+            print(f"  chance >= {int(t * 100)}%: {n:>7} calls" + (f", came true {precision * 100:.1f}%" if n else ""))
+        metrics["thresholds"] = thresholds
 
     is_short_side = args.target in SHORT_SIDE_TARGETS
     backtest_returns = [-r for r in all_val_returns] if is_short_side else all_val_returns

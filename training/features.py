@@ -34,11 +34,21 @@ MARKET_CANDIDATE_COLUMNS = [
     "market_ret_1", "breadth_above_50dma", "sector_strength_5", "stock_vs_sector_5",
 ]
 
+# Candidates for v3: trend strength in plain terms.
+TREND_CANDIDATE_COLUMNS = [
+    "green_streak",        # days in a row it closed higher (negative = lower)
+    "dist_high_20",        # close vs highest high of 20 days (0 = at the high)
+    "dist_high_52w",       # same, up to 52 weeks (at least 120 days of data)
+    "volume_trend_5_20",   # 5-day avg volume / 20-day avg volume
+    "up_down_volume_10",   # log(volume on up days / volume on down days), 10 days
+]
+
 TRADED_VALUE_COLUMN = "traded_value_20"
 
 FEATURE_SETS = {
     "v1": FEATURE_COLUMNS,
     "v2": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS,
+    "v3": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS + TREND_CANDIDATE_COLUMNS,
 }
 
 
@@ -93,6 +103,17 @@ def _rolling_trend(close, window=20):
     slopes = close.rolling(window).apply(lambda y: slope_r2(y)[0], raw=False)
     r2s = close.rolling(window).apply(lambda y: slope_r2(y)[1], raw=False)
     return slopes, r2s
+
+
+def _streak(change):
+    """Signed run length: +3 = closed higher 3 days running, -2 = lower 2."""
+    sign = np.sign(change.fillna(0)).astype(int).to_numpy()
+    out = np.zeros(len(sign))
+    run = 0
+    for i, s in enumerate(sign):
+        run = (run + s if run * s > 0 else s) if s != 0 else 0
+        out[i] = run
+    return pd.Series(out, index=change.index).where(change.notna())
 
 
 def compute_features(df):
@@ -160,11 +181,20 @@ def compute_features(df):
     sma_50 = close.rolling(50).mean()
     out["above_sma_50"] = (close > sma_50).astype(float).where(sma_50.notna())
 
+    change = close.diff()
+    out["green_streak"] = _streak(change)
+    out["dist_high_20"] = close / high.rolling(20).max() - 1
+    out["dist_high_52w"] = close / high.rolling(252, min_periods=120).max() - 1
+    out["volume_trend_5_20"] = volume.rolling(5).mean() / volume.rolling(20).mean().replace(0, np.nan)
+    up_vol = volume.where(change > 0, 0).rolling(10).sum()
+    down_vol = volume.where(change < 0, 0).rolling(10).sum()
+    out["up_down_volume_10"] = np.log((up_vol + 1) / (down_vol + 1)).where(change.notna())
+
     # Not a model input: train.py uses it to report results by liquidity.
     out[TRADED_VALUE_COLUMN] = (close * volume).rolling(20).mean()
 
     out = out.set_index("candle_timestamp")
-    return out[FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + [TRADED_VALUE_COLUMN]]
+    return out[FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + TREND_CANDIDATE_COLUMNS + [TRADED_VALUE_COLUMN]]
 
 
 def add_market_features(df, sectors):
