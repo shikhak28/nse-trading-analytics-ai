@@ -235,6 +235,8 @@ function Predictions() {
   const [sectors, setSectors] = useState([]);
   const [sector, setSector] = useState("");
   const [search, setSearch] = useState("");
+  // Hide penny stocks below this last close (0 = show all).
+  const [minPrice, setMinPrice] = useState(100);
 
   const madeOn = previousTradingDay(date);
 
@@ -277,8 +279,11 @@ function Predictions() {
     const expected = new Map(
       predictions.filter((r) => r.target_label === "next_day_return").map((r) => [`${r.exchange}:${r.symbol}`, Number(r.predicted_value)])
     );
+    // A search always shows its matches, even cheap stocks.
+    const searching = search.trim() !== "";
     const searched = predictions
       .filter((row) => matchesSearch(row, search))
+      .filter((row) => searching || !minPrice || Number(row.last_close) >= minPrice)
       .map((row) => ({ ...row, expected_return: expected.get(`${row.exchange}:${row.symbol}`) ?? null }));
     const rank = (label, direction) =>
       searched
@@ -290,7 +295,7 @@ function Predictions() {
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
-  }, [predictions, search]);
+  }, [predictions, search, minPrice]);
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -308,7 +313,7 @@ function Predictions() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-full border border-slate-200 dark:border-slate-800 overflow-hidden text-sm">
             <button
               type="button"
@@ -345,6 +350,19 @@ function Predictions() {
                 {s}
               </option>
             ))}
+          </select>
+
+          <select
+            value={minPrice}
+            onChange={(e) => setMinPrice(Number(e.target.value))}
+            aria-label="Hide penny stocks"
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value={0}>All prices</option>
+            <option value={20}>Hide under ₹20</option>
+            <option value={50}>Hide under ₹50</option>
+            <option value={80}>Hide under ₹80</option>
+            <option value={100}>Hide under ₹100</option>
           </select>
 
           <input
