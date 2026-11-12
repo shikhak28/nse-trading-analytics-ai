@@ -286,7 +286,7 @@ function Predictions() {
           horizon: "next_day",
           date: madeOn,
           sector: sector || undefined,
-          limit: 10000,
+          limit: 20000,
         });
         if (data.success) {
           setPredictions(data.results);
@@ -311,7 +311,7 @@ function Predictions() {
     if (!hasLive) return;
     const id = setInterval(async () => {
       try {
-        const data = await predictionsApi.getPredictions({ horizon: "next_day", date: madeOn, sector: sector || undefined, limit: 10000 });
+        const data = await predictionsApi.getPredictions({ horizon: "next_day", date: madeOn, sector: sector || undefined, limit: 20000 });
         if (data.success) setPredictions(data.results);
       } catch {
         // keep the last numbers; the next tick retries

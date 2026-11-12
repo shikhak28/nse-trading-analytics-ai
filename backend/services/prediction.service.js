@@ -56,6 +56,15 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
     conditions.push(
       `p.predicted_at >= $${values.length}::date AND p.predicted_at < $${values.length}::date + 1`
     );
+    // If the models ran twice that day, only the latest value of each
+    // target counts (same rule as getPriceGroupStocks).
+    conditions.push(
+      `NOT EXISTS (SELECT 1 FROM predictions p2
+                   WHERE p2.exchange = p.exchange AND p2.symbol = p.symbol
+                     AND p2.horizon = p.horizon AND p2.target_label = p.target_label
+                     AND p2.predicted_at > p.predicted_at
+                     AND p2.predicted_at < $${values.length}::date + 1)`
+    );
   }
   if (sector) {
     values.push(sector);
