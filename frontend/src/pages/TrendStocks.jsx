@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ResultTag } from "../components/ResultTag";
 import { marketApi } from "../api/marketApi";
 import { formatRange, formatVolume } from "../utils/volume";
 import { formatDay, previousTradingDay } from "../utils/tradingDays";
@@ -363,6 +364,7 @@ function TrendStocks() {
                         <Link to={`/history/${s.symbol}`} className="font-medium hover:text-blue-600">
                           {s.symbol}
                         </Link>
+                        <ResultTag stock={s} />
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">{s.company_name}</div>
                       </td>
                       <td className="py-2 pr-3 text-right">{price(s.start_close)}</td>

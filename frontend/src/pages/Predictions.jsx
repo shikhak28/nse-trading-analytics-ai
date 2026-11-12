@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ResultTag } from "../components/ResultTag";
 import { predictionsApi } from "../api/predictionsApi";
 import { formatRange, formatVolume } from "../utils/volume";
 import { formatDay, isTradingDay, previousTradingDay, todayIso } from "../utils/tradingDays";
@@ -96,7 +97,10 @@ function PredictionRow({ row, badgeClass, arrow }) {
           so it still fits the narrow Confidence Tiers columns. */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-xs font-medium">{row.symbol}</div>
+          <div className="truncate text-xs font-medium">
+            {row.symbol}
+            <ResultTag stock={row} />
+          </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {row.exchange}
             {row.last_close !== null && row.last_close !== undefined &&

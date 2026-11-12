@@ -21,6 +21,7 @@ const Verification = lazy(() => import("./pages/Verification"));
 const Accuracy = lazy(() => import("./pages/Accuracy"));
 const ModelHealth = lazy(() => import("./pages/ModelHealth"));
 const TrendStocks = lazy(() => import("./pages/TrendStocks"));
+const UpcomingResults = lazy(() => import("./pages/UpcomingResults"));
 
 function AuthenticatedRoutes() {
   return (
@@ -35,6 +36,7 @@ function AuthenticatedRoutes() {
         <Route path="/predictions" element={<Predictions />} />
         <Route path="/price-groups" element={<PriceGroupPredictions />} />
         <Route path="/trends" element={<TrendStocks />} />
+        <Route path="/results" element={<UpcomingResults />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />

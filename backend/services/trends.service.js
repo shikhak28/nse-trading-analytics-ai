@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { getPriceGroupStocks } = require("./prediction.service");
 const { attachLiveActual } = require("./liveActual");
+const { attachNextResult } = require("./events.service");
 
 // Steps are counted in trading days back from each stock's newest day
 // candle (calendar periods would make the current, partial one count). A
@@ -140,7 +141,7 @@ async function latestPredictionDay() {
 async function withPredictions(data, asOf = null) {
   const day = asOf || (await latestPredictionDay());
   if (!day) return { ...data, predictionDay: null };
-  const rows = await attachLiveActual(await getPriceGroupStocks({ date: day }));
+  const rows = await attachNextResult(await attachLiveActual(await getPriceGroupStocks({ date: day })));
   const preds = new Map(rows.map((p) => [`${p.exchange}:${p.symbol}`, p]));
   const attach = (s) => {
     const p = preds.get(`${s.exchange}:${s.symbol}`);
@@ -155,6 +156,8 @@ async function withPredictions(data, asOf = null) {
       // What the predicted day actually did (live while it's trading).
       actual_return: p?.actual_return ?? null,
       actual_live: p?.actual_live ?? false,
+      next_result_date: p?.next_result_date ?? null,
+      next_result_days: p?.next_result_days ?? null,
     };
   };
   const periods = Object.fromEntries(

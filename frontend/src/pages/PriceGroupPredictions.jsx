@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ResultTag } from "../components/ResultTag";
 import { predictionsApi } from "../api/predictionsApi";
 import { PRICE_BANDS, matchesBand } from "../utils/priceBands";
 import { formatRange, formatVolume } from "../utils/volume";
@@ -154,7 +155,10 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
               {pageStocks.map((stock) => (
                 <tr key={`${stock.exchange}-${stock.symbol}`} className="border-t border-slate-100 dark:border-slate-800">
                   <td className="py-2 pr-3">
-                    <div className="font-medium">{stock.symbol}</div>
+                    <div className="font-medium">
+                      {stock.symbol}
+                      <ResultTag stock={stock} />
+                    </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">{stock.exchange}</div>
                   </td>
                   <td className="py-2 pr-3">

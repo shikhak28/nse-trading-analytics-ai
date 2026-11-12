@@ -20,6 +20,7 @@ const verificationRoutes = require("./routes/verification.routes");
 const accuracyRoutes = require("./routes/accuracy.routes");
 const modelRoutes = require("./routes/model.routes");
 const rankingRoutes = require("./routes/ranking.routes");
+const eventsRoutes = require("./routes/events.routes");
 const marketSocket = require("./realtime/marketSocket");
 const { sessionMiddleware, isOwner, requireOwner } = require("./middleware/session");
 
@@ -51,6 +52,7 @@ app.use("/orders", ordersRoutes);
 app.use("/api/predictions", predictionsRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/accuracy", accuracyRoutes);
+app.use("/api/events", eventsRoutes);
 app.use("/model", modelRoutes);
 app.use("/ranking", rankingRoutes);
 
