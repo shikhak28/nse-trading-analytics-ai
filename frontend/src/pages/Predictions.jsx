@@ -145,7 +145,20 @@ function PredictionRow({ row, badgeClass, arrow }) {
   );
 }
 
-function PredictionList({ title, rows, badgeClass, arrow, pageSize = PAGE_SIZE }) {
+// Reorders a list that's already been chosen by the model (top N / tier).
+// Stocks with no actual move yet go last.
+function sortRows(rows, sortBy) {
+  if (sortBy === "model") return rows;
+  const dir = sortBy === "actual_desc" ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    if (a.actual_return == null) return b.actual_return == null ? 0 : 1;
+    if (b.actual_return == null) return -1;
+    return dir * (a.actual_return - b.actual_return);
+  });
+}
+
+function PredictionList({ title, rows: unsortedRows, badgeClass, arrow, sortBy = "model", pageSize = PAGE_SIZE }) {
+  const rows = useMemo(() => sortRows(unsortedRows, sortBy), [unsortedRows, sortBy]);
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const pageRows = rows.slice(page * pageSize, page * pageSize + pageSize);
@@ -203,7 +216,7 @@ function PredictionList({ title, rows, badgeClass, arrow, pageSize = PAGE_SIZE }
   );
 }
 
-function TierSection({ title, rankedRows, badgeClass, arrow }) {
+function TierSection({ title, rankedRows, badgeClass, arrow, sortBy }) {
   return (
     <div>
       <h2 className="mb-3 text-base font-medium">{title}</h2>
@@ -219,6 +232,7 @@ function TierSection({ title, rankedRows, badgeClass, arrow }) {
               rows={rows}
               badgeClass={badgeClass}
               arrow={arrow}
+              sortBy={sortBy}
               pageSize={TIER_PAGE_SIZE}
             />
           );
@@ -240,6 +254,7 @@ function Predictions() {
   const [search, setSearch] = useState("");
   // Hide penny stocks below this last close (0 = show all).
   const [minPrice, setMinPrice] = useState(100);
+  const [sortBy, setSortBy] = useState("model");
 
   const madeOn = previousTradingDay(date);
 
@@ -384,6 +399,17 @@ function Predictions() {
             <option value={100}>Hide under ₹100</option>
           </select>
 
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Order by"
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value="model">Order: model rank</option>
+            <option value="actual_desc">Order: actual move, highest first</option>
+            <option value="actual_asc">Order: actual move, lowest first</option>
+          </select>
+
           <input
             type="text"
             value={search}
@@ -420,12 +446,14 @@ function Predictions() {
                 title="Likely to Rise ≥2%"
                 rows={rankedRising.slice(0, TOP_N)}
                 arrow="▲"
+                sortBy={sortBy}
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               />
               <PredictionList
                 title="Likely to Fall ≥2%"
                 rows={rankedFalling.slice(0, TOP_N)}
                 arrow="▼"
+                sortBy={sortBy}
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
             </div>
@@ -435,12 +463,14 @@ function Predictions() {
                 title="Likely to Rise ≥2% -- by confidence"
                 rankedRows={rankedRising}
                 arrow="▲"
+                sortBy={sortBy}
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               />
               <TierSection
                 title="Likely to Fall ≥2% -- by confidence"
                 rankedRows={rankedFalling}
                 arrow="▼"
+                sortBy={sortBy}
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
             </div>
@@ -453,12 +483,14 @@ function Predictions() {
                 title="Expected Gainers"
                 rows={expectedGainers}
                 arrow="▲"
+                sortBy={sortBy}
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
               />
               <PredictionList
                 title="Expected Losers"
                 rows={expectedLosers}
                 arrow="▼"
+                sortBy={sortBy}
                 badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
               />
             </div>
