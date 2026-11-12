@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { getPriceGroupStocks } = require("./prediction.service");
+const { attachLiveActual } = require("./liveActual");
 
 // Steps are counted in trading days back from each stock's newest day
 // candle (calendar periods would make the current, partial one count). A
@@ -18,7 +19,17 @@ const REFRESH_MS = 30 * 60 * 1000;
 let cache = null;
 let inFlight = null;
 
-async function computeTrends() {
+// Past dates never change, so their scans are kept (a few, newest used).
+const PAST_CACHE_MAX = 6;
+const pastCache = new Map();
+
+// asOf (YYYY-MM-DD, IST trading day) = trends as they stood at that day's
+// close; null = latest. A day candle for IST day X is stored at 18:30 UTC
+// on X-1, so "candle_timestamp < X" includes X itself.
+async function computeTrends(asOf = null) {
+  const params = asOf ? [asOf] : [];
+  const end = asOf ? "$1::date" : "now()";
+  const until = asOf ? "AND hp.candle_timestamp < $1::date" : "";
   // One indexed lookup per company (exchange, symbol, interval, timestamp)
   // instead of a range scan: historical_prices also holds minute candles, so
   // a scan filtered only on interval = 'day' reads millions of rows (~2 min
@@ -38,14 +49,15 @@ async function computeTrends() {
                 row_number() OVER (ORDER BY hp.candle_timestamp DESC) - 1 AS k
          FROM historical_prices hp
          WHERE hp.exchange = c.exchange AND hp.symbol = c.symbol AND hp.interval = 'day'
-           AND hp.candle_timestamp >= now() - interval '60 days'
+           AND hp.candle_timestamp >= ${end} - interval '60 days' ${until}
          ORDER BY hp.candle_timestamp DESC
          LIMIT ${MAX_LOOKBACK + 1}
        ) x
      ) t
      WHERE c.excluded_reason IS NULL
        -- Skip stocks that stopped trading: their newest candle must be recent.
-       AND t.last_candle_at >= now() - interval '10 days'`
+       AND t.last_candle_at >= ${end} - interval '10 days'`,
+    params
   );
 
   const periods = Object.fromEntries(PERIODS.map((p) => [p.key, { rising: [], falling: [] }]));
@@ -125,10 +137,11 @@ async function latestPredictionDay() {
 // Adds the latest model view (expected move, chances, Signal) to each trend
 // stock. Fetched per request (~0.3 s) so it's fresh right after predict.py
 // runs, while the slow trend scan stays cached.
-async function withPredictions(data) {
-  const day = await latestPredictionDay();
+async function withPredictions(data, asOf = null) {
+  const day = asOf || (await latestPredictionDay());
   if (!day) return { ...data, predictionDay: null };
-  const preds = new Map((await getPriceGroupStocks({ date: day })).map((p) => [`${p.exchange}:${p.symbol}`, p]));
+  const rows = await attachLiveActual(await getPriceGroupStocks({ date: day }));
+  const preds = new Map(rows.map((p) => [`${p.exchange}:${p.symbol}`, p]));
   const attach = (s) => {
     const p = preds.get(`${s.exchange}:${s.symbol}`);
     return {
@@ -137,6 +150,9 @@ async function withPredictions(data) {
       chance_up: p?.chance_up ?? null,
       chance_down: p?.chance_down ?? null,
       signal: p?.signal ?? null,
+      // What the predicted day actually did (live while it's trading).
+      actual_return: p?.actual_return ?? null,
+      actual_live: p?.actual_live ?? false,
     };
   };
   const periods = Object.fromEntries(
@@ -145,7 +161,19 @@ async function withPredictions(data) {
   return { ...data, periods, predictionDay: day };
 }
 
-async function getTrends() {
+async function getPastTrends(asOf) {
+  if (!pastCache.has(asOf)) {
+    const pending = computeTrends(asOf);
+    pastCache.set(asOf, pending);
+    pending.catch(() => pastCache.delete(asOf));
+    while (pastCache.size > PAST_CACHE_MAX) pastCache.delete(pastCache.keys().next().value);
+  }
+  const data = await pastCache.get(asOf);
+  return { ...(await withPredictions(data, asOf)), asOf };
+}
+
+async function getTrends({ asOf = null } = {}) {
+  if (asOf) return getPastTrends(asOf);
   if (!cache) await refresh();
   else if (Date.now() - cache.at > REFRESH_MS) refresh().catch((err) => console.error("[trends] refresh failed:", err.message));
   return { ...(await withPredictions(cache.data)), computedAt: cache.at };

@@ -20,8 +20,8 @@ export const marketApi = {
     return data;
   },
 
-  getTrends: async () => {
-    const { data } = await client.get("/market/trends");
+  getTrends: async (date) => {
+    const { data } = await client.get("/market/trends", { params: date ? { date } : {} });
     return data;
   },
 

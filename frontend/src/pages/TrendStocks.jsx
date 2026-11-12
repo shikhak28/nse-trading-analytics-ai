@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { marketApi } from "../api/marketApi";
 import { formatVolume } from "../utils/volume";
+import { formatDay, previousTradingDay } from "../utils/tradingDays";
 
 const PAGE_SIZE = 25;
 
@@ -36,8 +37,35 @@ const SORT_VALUE = {
   total_change: (s) => s.total_change,
   signal: (s) => (s.signal ? SIGNAL_RANK[s.signal] : null),
   expected_return: (s) => s.expected_return,
+  actual_return: (s) => s.actual_return,
   avg_traded_value: (s) => s.avg_traded_value,
 };
+
+function pctMove(v) {
+  return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2)}%`;
+}
+
+function ActualCell({ s }) {
+  if (s.actual_return == null) return <span className="text-[11px] text-slate-400">{s.expected_return == null ? "—" : "Waiting"}</span>;
+  const right = s.expected_return != null && Math.sign(s.actual_return) === Math.sign(s.expected_return);
+  return (
+    <span className="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+      {s.actual_live && (
+        <span className="rounded bg-blue-100 px-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" title="Market is open: live price, final after close">
+          LIVE
+        </span>
+      )}
+      <span className={`font-medium ${s.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{pctMove(s.actual_return)}</span>
+      {s.expected_return != null && (
+        <span
+          className={`rounded-full px-1.5 text-[11px] font-bold ${right ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"}`}
+        >
+          {right ? "✓" : "✗"}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function SortHeader({ label, sortKey, sort, onSort, align = "right", title }) {
   const active = sort.key === sortKey;
@@ -103,16 +131,43 @@ function TrendStocks() {
   };
   const [period, setPeriod] = useState("1m");
   const [signalFilter, setSignalFilter] = useState("all");
+  // "" = latest. Otherwise the day being predicted, as on the other pages:
+  // trends as of the previous trading day's close, and how that day went.
+  const [date, setDate] = useState("");
 
   useEffect(() => {
+    let ignore = false;
     marketApi
-      .getTrends()
-      .then((res) => (res.success ? setData(res) : setError(res.message || "Unable to load trends.")))
-      .catch((err) => setError(err.message || "Unable to load trends."));
-  }, []);
+      .getTrends(date ? previousTradingDay(date) : undefined)
+      .then((res) => {
+        if (ignore) return;
+        if (res.success) {
+          setData({ ...res, forDate: date });
+          setError(null);
+        } else setError(res.message || "Unable to load trends.");
+      })
+      .catch((err) => !ignore && setError(err.message || "Unable to load trends."));
+    return () => {
+      ignore = true;
+    };
+  }, [date]);
 
+  // Live actual moves while the market is open: refresh every minute.
+  const hasLive = data?.forDate === date && Object.values(data?.periods ?? {}).some((l) => [...l.rising, ...l.falling].some((s) => s.actual_live));
+  useEffect(() => {
+    if (!hasLive) return;
+    const id = setInterval(() => {
+      marketApi
+        .getTrends(date ? previousTradingDay(date) : undefined)
+        .then((res) => res.success && setData({ ...res, forDate: date }))
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, [hasLive, date]);
+
+  const ready = data && data.forDate === date;
   const stocks = useMemo(() => {
-    if (!data) return [];
+    if (!data || data.forDate !== date) return [];
     const needle = search.trim().toLowerCase();
     const list = (data.periods?.[period]?.[view] ?? []).filter(
       (s) =>
@@ -132,7 +187,7 @@ function TrendStocks() {
       if (typeof va === "string") return dir * va.localeCompare(vb);
       return dir * (va - vb);
     });
-  }, [data, view, search, minValue, sort, signalFilter, period]);
+  }, [data, date, view, search, minValue, sort, signalFilter, period]);
 
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
   const pageStocks = stocks.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -158,6 +213,11 @@ function TrendStocks() {
               : `Stocks that closed lower every ${info.stepLabel} for the last ${info.label}.`}{" "}
             A week is 5 trading days. Past trend, not a forecast.
           </p>
+          {date && (
+            <p className="mt-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+              Showing trends as of {formatDay(previousTradingDay(date))} close, and how {formatDay(date)} actually went.
+            </p>
+          )}
           {data?.predictionDay && (
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Signal and expected move are the model's view for the next trading day, made on {data.predictionDay}.
@@ -166,6 +226,23 @@ function TrendStocks() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            Predictions for
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setPage(0);
+              }}
+              className={field}
+            />
+          </label>
+          {date && (
+            <button type="button" onClick={() => setDate("")} className={field}>
+              Latest
+            </button>
+          )}
           <input
             type="text"
             value={search}
@@ -254,8 +331,8 @@ function TrendStocks() {
 
       {error ? (
         <div className={`${card} p-6 text-red-600 dark:text-red-400`}>{error}</div>
-      ) : !data ? (
-        <div className={`${card} p-6`}>Scanning recent prices... (first load can take a little while)</div>
+      ) : !ready ? (
+        <div className={`${card} p-6`}>Scanning prices... (a new date can take up to a minute)</div>
       ) : (
         <div className={`${card} p-5`}>
           <div className="mb-3 text-[11px] text-slate-500 dark:text-slate-400">{stocks.length} stocks</div>
@@ -274,6 +351,7 @@ function TrendStocks() {
                     <th className="pb-2 pr-3 font-medium">Each {info.stepLabel}</th>
                     <SortHeader label="Signal" sortKey="signal" sort={sort} onSort={onSort} align="left" />
                     <SortHeader label="Expected move" sortKey="expected_return" sort={sort} onSort={onSort} />
+                    <SortHeader label="Actual move" sortKey="actual_return" sort={sort} onSort={onSort} title="What the predicted day actually did" />
                     <SortHeader label="Avg traded/day" sortKey="avg_traded_value" sort={sort} onSort={onSort} />
                   </tr>
                 </thead>
@@ -312,6 +390,9 @@ function TrendStocks() {
                         }`}
                       >
                         {s.expected_return == null ? "—" : `${s.expected_return >= 0 ? "+" : ""}${(s.expected_return * 100).toFixed(2)}%`}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        <ActualCell s={s} />
                       </td>
                       <td className="py-2 text-right text-slate-500 dark:text-slate-400">{crore(s.avg_traded_value)}</td>
                     </tr>

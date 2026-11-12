@@ -102,7 +102,12 @@ router.get("/historical/stored", async (req, res) => {
  */
 router.get("/trends", async (req, res) => {
     try {
-        const trends = await trendsService.getTrends();
+        // date = the day predictions were made (trends as of its close).
+        const date = req.query.date?.trim();
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return res.status(400).json({ success: false, message: "date must be YYYY-MM-DD" });
+        }
+        const trends = await trendsService.getTrends({ asOf: date || null });
         return res.json({ success: true, ...trends });
     } catch (err) {
         console.error("Trends fetch error:", err);
