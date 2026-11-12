@@ -61,14 +61,22 @@ async function registerSchedules() {
         { repeat: { pattern: "0 30 16 * * 1-5", tz: "Asia/Kolkata" }, jobId: "daily-eod-sync" }
     );
 
-    // Sunday 3 AM IST -- low-traffic time to refresh the instrument master,
-    // for each exchange tracked.
+    // 4:15 PM IST, weekdays -- picks up new listings and symbol changes
+    // (e.g. MTARTECH-BE moving back to MTARTECH) just before the 4:30 EOD
+    // sync, which then backfills their history. It used to run Sunday 3 AM,
+    // but the Zerodha login has always expired by then, so every run was
+    // skipped and new symbols never arrived.
+    for (const scheduler of await historicalSchedulerQueue.getJobSchedulers()) {
+        if (scheduler.name === "instrument-master-refresh" && scheduler.pattern === "0 0 3 * * 0") {
+            await historicalSchedulerQueue.removeJobScheduler(scheduler.key);
+        }
+    }
     await historicalSchedulerQueue.add(
         "instrument-master-refresh",
         { exchange: "NSE" },
-        { repeat: { pattern: "0 0 3 * * 0", tz: "Asia/Kolkata" }, jobId: "instrument-master-refresh-nse" }
+        { repeat: { pattern: "0 15 16 * * 1-5", tz: "Asia/Kolkata" }, jobId: "instrument-master-refresh-nse-weekday" }
     );
-    
+
 
     // 7:00 AM IST, every day -- computes yesterday's movers leaderboard,
     // once the previous day's EOD sync has had all night to finish draining.
