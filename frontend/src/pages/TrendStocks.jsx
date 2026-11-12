@@ -25,10 +25,35 @@ const SIGNALS = {
   none: { label: "No clear signal", className: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
 };
 
-const SORTS = {
-  trend: { label: "Sort: biggest trend" },
-  expected: { label: "Sort: highest expected move" },
+// Click a column header to sort by it: first click high to low, second
+// low to high. Text columns start A to Z.
+const SIGNAL_RANK = { positive: 2, none: 1, negative: 0 };
+const SORT_VALUE = {
+  symbol: (s) => s.symbol,
+  start_close: (s) => s.start_close,
+  last_close: (s) => s.last_close,
+  last_volume: (s) => s.last_volume,
+  total_change: (s) => s.total_change,
+  signal: (s) => (s.signal ? SIGNAL_RANK[s.signal] : null),
+  expected_return: (s) => s.expected_return,
+  avg_traded_value: (s) => s.avg_traded_value,
 };
+
+function SortHeader({ label, sortKey, sort, onSort, align = "right", title }) {
+  const active = sort.key === sortKey;
+  return (
+    <th className={`pb-2 pr-3 font-medium ${align === "right" ? "text-right" : ""}`} title={title}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-blue-600 ${active ? "text-blue-600 dark:text-blue-400" : ""}`}
+      >
+        {label}
+        <span className="text-[10px]">{active ? (sort.dir === "desc" ? "▼" : "▲") : "↕"}</span>
+      </button>
+    </th>
+  );
+}
 
 function SignalBadge({ signal }) {
   if (!signal) return <span className="text-[11px] text-slate-400">—</span>;
@@ -68,7 +93,14 @@ function TrendStocks() {
   const [search, setSearch] = useState("");
   const [minValue, setMinValue] = useState(0);
   const [page, setPage] = useState(0);
-  const [sort, setSort] = useState("trend");
+  // key null = default order (biggest trend first).
+  const [sort, setSort] = useState({ key: null, dir: "desc" });
+  const onSort = (key) => {
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "desc" ? "asc" : "desc" } : { key, dir: key === "symbol" ? "asc" : "desc" }
+    );
+    setPage(0);
+  };
   const [period, setPeriod] = useState("1m");
   const [signalFilter, setSignalFilter] = useState("all");
 
@@ -88,17 +120,18 @@ function TrendStocks() {
         (signalFilter === "all" || s.signal === signalFilter) &&
         (!needle || s.symbol.toLowerCase().includes(needle) || s.company_name?.toLowerCase().includes(needle))
     );
-    if (sort === "expected") {
-      // Risers: biggest expected gain first. Fallers: biggest expected drop
-      // first. Stocks with no prediction go last.
-      const dir = view === "rising" ? -1 : 1;
-      return [...list].sort((a, b) => {
-        if (a.expected_return == null) return 1;
-        if (b.expected_return == null) return -1;
-        return dir * (a.expected_return - b.expected_return);
-      });
-    }
-    return list;
+    if (!sort.key) return list;
+    // Empty values always go last, whichever direction.
+    const value = SORT_VALUE[sort.key];
+    const dir = sort.dir === "desc" ? -1 : 1;
+    return [...list].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (va == null) return vb == null ? 0 : 1;
+      if (vb == null) return -1;
+      if (typeof va === "string") return dir * va.localeCompare(vb);
+      return dir * (va - vb);
+    });
   }, [data, view, search, minValue, sort, signalFilter, period]);
 
   const totalPages = Math.max(1, Math.ceil(stocks.length / PAGE_SIZE));
@@ -167,21 +200,11 @@ function TrendStocks() {
             <option value="negative">Negative only</option>
             <option value="none">No clear signal</option>
           </select>
-          <select
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value);
-              setPage(0);
-            }}
-            className={field}
-            aria-label="Sort"
-          >
-            {Object.entries(SORTS).map(([value, o]) => (
-              <option key={value} value={value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          {sort.key && (
+            <button type="button" onClick={() => setSort({ key: null, dir: "desc" })} className={field}>
+              Reset order
+            </button>
+          )}
         </div>
       </div>
 
@@ -243,15 +266,15 @@ function TrendStocks() {
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr className="text-left text-[11px] text-slate-500 dark:text-slate-400">
-                    <th className="pb-2 pr-3 font-medium">Stock</th>
-                    <th className="pb-2 pr-3 text-right font-medium">{info.label} ago</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Last close</th>
-                    <th className="pb-2 pr-3 text-right font-medium" title="Shares traded in the last session">Volume</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Total change</th>
+                    <SortHeader label="Stock" sortKey="symbol" sort={sort} onSort={onSort} align="left" />
+                    <SortHeader label={`${info.label} ago`} sortKey="start_close" sort={sort} onSort={onSort} />
+                    <SortHeader label="Last close" sortKey="last_close" sort={sort} onSort={onSort} />
+                    <SortHeader label="Volume" sortKey="last_volume" sort={sort} onSort={onSort} title="Shares traded in the last session" />
+                    <SortHeader label="Total change" sortKey="total_change" sort={sort} onSort={onSort} />
                     <th className="pb-2 pr-3 font-medium">Each {info.stepLabel}</th>
-                    <th className="pb-2 pr-3 font-medium">Signal</th>
-                    <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
-                    <th className="pb-2 text-right font-medium">Avg traded/day</th>
+                    <SortHeader label="Signal" sortKey="signal" sort={sort} onSort={onSort} align="left" />
+                    <SortHeader label="Expected move" sortKey="expected_return" sort={sort} onSort={onSort} />
+                    <SortHeader label="Avg traded/day" sortKey="avg_traded_value" sort={sort} onSort={onSort} />
                   </tr>
                 </thead>
                 <tbody>
