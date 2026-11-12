@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { marketApi } from "../api/marketApi";
+import { formatVolume } from "../utils/volume";
 
 const PAGE_SIZE = 25;
 
@@ -245,6 +246,7 @@ function TrendStocks() {
                     <th className="pb-2 pr-3 font-medium">Stock</th>
                     <th className="pb-2 pr-3 text-right font-medium">{info.label} ago</th>
                     <th className="pb-2 pr-3 text-right font-medium">Last close</th>
+                    <th className="pb-2 pr-3 text-right font-medium" title="Shares traded in the last session">Volume</th>
                     <th className="pb-2 pr-3 text-right font-medium">Total change</th>
                     <th className="pb-2 pr-3 font-medium">Each {info.stepLabel}</th>
                     <th className="pb-2 pr-3 font-medium">Signal</th>
@@ -263,6 +265,7 @@ function TrendStocks() {
                       </td>
                       <td className="py-2 pr-3 text-right">{price(s.start_close)}</td>
                       <td className="py-2 pr-3 text-right">{price(s.last_close)}</td>
+                      <td className="py-2 pr-3 text-right">{formatVolume(s.last_volume)}</td>
                       <td
                         className={`py-2 pr-3 text-right text-sm font-semibold ${
                           s.total_change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"

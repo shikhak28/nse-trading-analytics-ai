@@ -38,7 +38,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
   const result = await db.query(
     `SELECT p.id, p.exchange, p.symbol, p.predicted_at, p.horizon, p.target_label, p.model_version_id,
             p.predicted_value, p.predicted_low, p.predicted_high, p.confidence, p.explanation,
-            c.company_name, c.sector, lc.last_close,
+            c.company_name, c.sector, lc.last_close, lc.last_volume::float8 AS last_volume,
             -- What actually happened on the predicted day (NULL until its EOD sync).
             (ac.actual_close / NULLIF(lc.last_close, 0) - 1)::float8 AS actual_return
      FROM predictions p
@@ -47,7 +47,7 @@ async function getPredictions({ symbol, exchange, horizon, date, sector, limit =
      -- its price back then. The 15-day floor limits the scan to the one or two
      -- monthly partitions involved and treats a long-halted stock as unpriced.
      LEFT JOIN LATERAL (
-       SELECT hp.close AS last_close
+       SELECT hp.close AS last_close, hp.volume AS last_volume
        FROM historical_prices hp
        WHERE hp.exchange = p.exchange AND hp.symbol = p.symbol AND hp.interval = 'day'
          AND hp.candle_timestamp <= p.predicted_at
@@ -101,6 +101,7 @@ async function getPriceGroupStocks({ date }) {
             s.chance_up::float8 AS chance_up,
             s.chance_down::float8 AS chance_down,
             lc.last_close::float8 AS last_close,
+            lc.last_volume::float8 AS last_volume,
             -- Day candles are stored at 00:00 IST in UTC (18:30 the day
             -- before); +6h lands on the IST trading date, as dailyMovers does.
             to_char(lc.last_close_at + interval '6 hours', 'YYYY-MM-DD') AS last_close_day,
@@ -115,7 +116,7 @@ async function getPriceGroupStocks({ date }) {
      -- Same rule as getPredictions: the close as of when the prediction was
      -- made, with a 15-day floor so a long-halted stock reads as unpriced.
      LEFT JOIN LATERAL (
-       SELECT hp.close AS last_close, hp.candle_timestamp AS last_close_at
+       SELECT hp.close AS last_close, hp.volume AS last_volume, hp.candle_timestamp AS last_close_at
        FROM historical_prices hp
        WHERE hp.exchange = s.exchange AND hp.symbol = s.symbol AND hp.interval = 'day'
          AND hp.candle_timestamp <= s.predicted_at

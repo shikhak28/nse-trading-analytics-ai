@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
+import { formatVolume } from "../utils/volume";
 import { formatDay, isTradingDay, previousTradingDay, todayIso } from "../utils/tradingDays";
 
 const PAGE_SIZE = 20;
@@ -98,6 +99,7 @@ function PredictionRow({ row, badgeClass, arrow }) {
             {row.exchange}
             {row.last_close !== null && row.last_close !== undefined &&
               ` · ₹${Number(row.last_close).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+            {row.last_volume != null && <span title="Shares traded in the last session">{` · Vol ${formatVolume(row.last_volume)}`}</span>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { predictionsApi } from "../api/predictionsApi";
 import { PRICE_BANDS, matchesBand } from "../utils/priceBands";
+import { formatVolume } from "../utils/volume";
 import { formatDay, previousTradingDay, todayIso } from "../utils/tradingDays";
 
 const PAGE_SIZE = 20;
@@ -136,6 +137,7 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                 <th className="pb-2 pr-3 font-medium">Stock</th>
                 <th className="pb-2 pr-3 font-medium">Signal</th>
                 <th className="pb-2 pr-3 text-right font-medium">Last close</th>
+                <th className="pb-2 pr-3 text-right font-medium" title="Shares traded in the last session">Volume</th>
                 <th className="pb-2 pr-3 text-right font-medium">Expected move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Actual move</th>
                 <th className="pb-2 pr-3 text-right font-medium">Chance of +2%</th>
@@ -163,6 +165,7 @@ function MoveTable({ title, stocks, moveClass, madeOn }) {
                       </div>
                     )}
                   </td>
+                  <td className="py-2 pr-3 text-right">{formatVolume(stock.last_volume)}</td>
                   <td className={`py-2 pr-3 text-right text-sm font-semibold ${moveClass}`}>{formatMove(stock.expected_return)}</td>
                   <td className="py-2 pr-3 text-right">
                     <ActualCell stock={stock} />

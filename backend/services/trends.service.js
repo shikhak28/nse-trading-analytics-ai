@@ -24,13 +24,14 @@ async function computeTrends() {
   // a scan filtered only on interval = 'day' reads millions of rows (~2 min
   // vs ~30 s this way).
   const result = await db.query(
-    `SELECT c.exchange, c.symbol, c.company_name, t.closes, t.avg_traded_value
+    `SELECT c.exchange, c.symbol, c.company_name, t.closes, t.last_volume, t.avg_traded_value
      FROM companies c
      CROSS JOIN LATERAL (
        -- Daily closes, newest first: closes[1] = latest, closes[2] = the
        -- trading day before, and so on.
        SELECT array_agg(x.close::float8 ORDER BY x.k) AS closes,
               max(x.candle_timestamp) AS last_candle_at,
+              max(x.volume) FILTER (WHERE x.k = 0)::float8 AS last_volume,
               avg(x.close * x.volume) FILTER (WHERE x.k < 20)::float8 AS avg_traded_value
        FROM (
          SELECT hp.close, hp.volume, hp.candle_timestamp,
@@ -56,6 +57,7 @@ async function computeTrends() {
       symbol: row.symbol,
       company_name: row.company_name,
       last_close: closes[0],
+      last_volume: row.last_volume,
       avg_traded_value: row.avg_traded_value,
     };
 
