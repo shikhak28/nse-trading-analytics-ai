@@ -44,6 +44,7 @@ function ActualCell({ stock }) {
   const right = isRight(stock);
   return (
     <div className="flex items-center justify-end gap-1.5">
+{stock.actual_live && <span className="rounded bg-blue-100 px-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" title="Market is open: live price, final after close">LIVE</span>}
       <span className={`font-semibold ${stock.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
         {formatMove(stock.actual_return)}
       </span>
@@ -103,7 +104,11 @@ function ResultSummary({ date, rising, falling }) {
   return (
     <div className={`${card} mb-6 p-5`}>
       <h2 className="mb-3 text-sm font-medium">
-        Result for {formatDay(date)} <span className="font-normal text-slate-500 dark:text-slate-400">(stocks shown with current filters)</span>
+        Result for {formatDay(date)}{" "}
+        {all.some((s) => s.actual_live) && (
+          <span className="rounded bg-blue-100 px-1.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">LIVE, so far today</span>
+        )}{" "}
+        <span className="font-normal text-slate-500 dark:text-slate-400">(stocks shown with current filters)</span>
       </h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <ScoreBox label="Expected to Rise" score={scoreOf(rising)} />
@@ -244,6 +249,21 @@ function PriceGroupPredictions() {
       ignore = true;
     };
   }, [madeOn]);
+
+  // Live actual moves during market hours: refresh every minute, silently.
+  const hasLive = rows.some((row) => row.actual_live);
+  useEffect(() => {
+    if (!hasLive) return;
+    const id = setInterval(async () => {
+      try {
+        const data = await predictionsApi.getPriceGroupStocks(madeOn);
+        if (data.success) setRows(data.results);
+      } catch {
+        // keep the last numbers; the next tick retries
+      }
+    }, 60000);
+    return () => clearInterval(id);
+  }, [hasLive, madeOn]);
 
   // A search always shows its matches, even thin stocks -- otherwise
   // looking up a specific small stock would come back empty.

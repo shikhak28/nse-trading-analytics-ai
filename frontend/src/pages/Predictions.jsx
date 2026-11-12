@@ -55,6 +55,7 @@ function ActualMove({ row, dir }) {
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs" title={right ? "Moved the predicted way" : "Moved the other way"}>
       <span className="text-[11px] text-slate-400">Actual</span>
+      {row.actual_live && <span className="rounded bg-blue-100 px-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" title="Market is open: live price, final after close">LIVE</span>}
       <span className={`font-semibold ${row.actual_return >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
         {formatMove(row.actual_return)}
       </span>
@@ -274,6 +275,22 @@ function Predictions() {
 
     loadPredictions();
   }, [madeOn, sector]);
+
+  // While the market is open, actual moves come from live prices: refresh
+  // them every minute without the loading spinner.
+  const hasLive = predictions.some((row) => row.actual_live);
+  useEffect(() => {
+    if (!hasLive) return;
+    const id = setInterval(async () => {
+      try {
+        const data = await predictionsApi.getPredictions({ horizon: "next_day", date: madeOn, sector: sector || undefined, limit: 10000 });
+        if (data.success) setPredictions(data.results);
+      } catch {
+        // keep the last numbers; the next tick retries
+      }
+    }, 60000);
+    return () => clearInterval(id);
+  }, [hasLive, madeOn, sector]);
 
   const { rankedRising, rankedFalling, expectedGainers, expectedLosers } = useMemo(() => {
     // Every row also carries the stock's expected % move (next_day_return),

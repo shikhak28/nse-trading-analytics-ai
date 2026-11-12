@@ -1,4 +1,5 @@
 const express = require("express");
+const { attachLiveActual } = require("../services/liveActual");
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get("/", async (req, res) => {
       limit,
       offset,
     });
-    return res.json({ success: true, results: predictions });
+    return res.json({ success: true, results: await attachLiveActual(predictions) });
   } catch (err) {
     console.error("Predictions fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
@@ -52,7 +53,7 @@ router.get("/price-groups", async (req, res) => {
   }
   try {
     const stocks = await predictionService.getPriceGroupStocks({ date });
-    return res.json({ success: true, results: stocks });
+    return res.json({ success: true, results: await attachLiveActual(stocks) });
   } catch (err) {
     console.error("Price group fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
