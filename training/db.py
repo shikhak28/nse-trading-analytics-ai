@@ -50,6 +50,16 @@ def fetch_sectors():
     return fetch_df("SELECT exchange, symbol, sector FROM companies")
 
 
+def fetch_index_prices():
+    """Daily NIFTY 50 / NIFTY BANK / INDIA VIX closes; empty if the table
+    doesn't exist yet (migration 023 not applied)."""
+    try:
+        return fetch_df("SELECT symbol, trade_date, close FROM index_prices ORDER BY symbol, trade_date")
+    except Exception as err:  # noqa: BLE001
+        print(f"  index_prices unavailable ({err}); index features will be NaN")
+        return pd.DataFrame(columns=["symbol", "trade_date", "close"])
+
+
 def fetch_daily_candles(exchange, symbol):
     return fetch_df(
         """

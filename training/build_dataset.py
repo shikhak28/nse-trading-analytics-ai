@@ -13,16 +13,16 @@ import pandas as pd
 
 import db
 from config import FEATURE_SET_VERSION, CACHE_DIR
-from features import FEATURE_COLUMNS, add_market_features, compute_features
+from features import FEATURE_COLUMNS, add_index_features, add_market_features, compute_features, index_daily_features
 from labels import compute_labels
 
 
-def build_for_symbol(exchange, symbol):
+def build_for_symbol(exchange, symbol, index_daily):
     candles = db.fetch_daily_candles(exchange, symbol)
     if len(candles) < 30:
         return None, {}, None
 
-    feats = compute_features(candles)
+    feats = add_index_features(compute_features(candles), index_daily)
     label_sets = compute_labels(candles)
     # Only v1 columns decide which rows exist, so the v2 candidates (some need
     # 50 days of history) can't change what the production model trains on.
@@ -74,13 +74,15 @@ def main():
         symbols = list(companies.itertuples(index=False, name=None))
 
     print(f"Building features for {len(symbols)} symbol(s)...")
+    index_daily = index_daily_features(db.fetch_index_prices())
+    print(f"  index data: {len(index_daily)} day(s)")
 
     all_cache = {"eod": [], "next_day": []}
     all_latest = []
     total_feature_rows = 0
 
     for i, (exchange, symbol) in enumerate(symbols, 1):
-        feature_rows, cache_frames, latest = build_for_symbol(exchange, symbol)
+        feature_rows, cache_frames, latest = build_for_symbol(exchange, symbol, index_daily)
         if latest is not None:
             all_latest.append(latest)
         if feature_rows:

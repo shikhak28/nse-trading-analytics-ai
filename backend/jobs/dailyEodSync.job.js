@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { enqueueSymbolSync } = require("../queues");
+const { syncIndices } = require("../services/indexSync.service");
 
 /**
  * Runs after market close (NSE and BSE both close 15:30 IST): enqueue a
@@ -21,6 +22,13 @@ async function processDailyEodSync() {
     }
 
     console.log(`[daily-eod-sync] enqueued ${result.rows.length} symbols (day + minute)`);
+
+    // Only 3 index series -- fetched inline, never blocks the stock sync.
+    try {
+        await syncIndices();
+    } catch (err) {
+        console.error(`[daily-eod-sync] index sync failed: ${err.message}`);
+    }
     return { enqueued: result.rows.length };
 }
 

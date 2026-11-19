@@ -43,12 +43,24 @@ TREND_CANDIDATE_COLUMNS = [
     "up_down_volume_10",   # log(volume on up days / volume on down days), 10 days
 ]
 
+# Candidates for v4: real index data (NIFTY 50, NIFTY BANK, INDIA VIX) from
+# the index_prices table. Market-wide columns are the same for every stock
+# on a day; the last two compare the stock with NIFTY.
+INDEX_CANDIDATE_COLUMNS = [
+    "nifty_ret_1", "nifty_ret_5", "nifty_vs_sma_20", "banknifty_ret_1",
+    "vix_level", "vix_chg_5",
+    "stock_vs_nifty_5",    # stock ret_5 minus NIFTY ret_5
+    "beta_nifty_60",       # 60-day beta of the stock's daily return to NIFTY
+]
+
 TRADED_VALUE_COLUMN = "traded_value_20"
 
 FEATURE_SETS = {
     "v1": FEATURE_COLUMNS,
     "v2": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS,
     "v3": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS + TREND_CANDIDATE_COLUMNS,
+    "v4": FEATURE_COLUMNS + STOCK_CANDIDATE_COLUMNS + MARKET_CANDIDATE_COLUMNS + TREND_CANDIDATE_COLUMNS
+          + INDEX_CANDIDATE_COLUMNS,
 }
 
 
@@ -216,3 +228,54 @@ def add_market_features(df, sectors):
     df["sector_strength_5"] = sector_ret_5 - market_ret_5
     df["stock_vs_sector_5"] = df["ret_5"] - sector_ret_5
     return df.drop(columns="sector")
+
+
+def _ist_day(ts):
+    # Daily candles are stored at 00:00 or 18:30 of the previous day.
+    return (pd.to_datetime(ts) + pd.Timedelta(hours=6)).dt.normalize()
+
+
+def index_daily_features(index_prices):
+    """index_prices: [symbol, trade_date, close] -> one row per IST day with
+    the market-wide index columns. Each value uses that day's close and
+    earlier ones only."""
+    cols = ["nifty_ret_1", "nifty_ret_5", "nifty_vs_sma_20", "banknifty_ret_1", "vix_level", "vix_chg_5"]
+    if index_prices is None or index_prices.empty:
+        return pd.DataFrame(columns=cols)
+    wide = index_prices.pivot_table(index="trade_date", columns="symbol", values="close").sort_index()
+    wide.index = pd.to_datetime(wide.index)
+    out = pd.DataFrame(index=wide.index)
+    nifty = wide.get("NIFTY 50")
+    bank = wide.get("NIFTY BANK")
+    vix = wide.get("INDIA VIX")
+    nan = pd.Series(np.nan, index=wide.index)
+    out["nifty_ret_1"] = nifty.pct_change(1, fill_method=None) if nifty is not None else nan
+    out["nifty_ret_5"] = nifty.pct_change(5, fill_method=None) if nifty is not None else nan
+    out["nifty_vs_sma_20"] = nifty / nifty.rolling(20).mean() - 1 if nifty is not None else nan
+    out["banknifty_ret_1"] = bank.pct_change(1, fill_method=None) if bank is not None else nan
+    out["vix_level"] = vix if vix is not None else nan
+    out["vix_chg_5"] = vix.pct_change(5, fill_method=None) if vix is not None else nan
+    return out[cols].astype(float)
+
+
+def add_index_features(feats, index_daily):
+    """feats: one symbol's compute_features() output (indexed by
+    candle_timestamp, has ret_1 and ret_5). Adds INDEX_CANDIDATE_COLUMNS.
+    Runs per symbol so the rolling beta also exists on the newest row that
+    live scoring uses."""
+    feats = feats.copy()
+    day = _ist_day(pd.Series(feats.index, index=feats.index))
+    joined = index_daily.reindex(day.values)
+    joined.index = feats.index
+    for col in index_daily.columns:
+        feats[col] = joined[col] if col in joined else np.nan
+    feats["stock_vs_nifty_5"] = feats["ret_5"] - feats["nifty_ret_5"]
+    x, y = feats["nifty_ret_1"], feats["ret_1"]
+    cov = (x * y).rolling(60, min_periods=40).mean() - x.rolling(60, min_periods=40).mean() * y.rolling(60, min_periods=40).mean()
+    var = x.rolling(60, min_periods=40).var(ddof=0)
+    feats["beta_nifty_60"] = cov / var.where(var > 0)
+    for col in INDEX_CANDIDATE_COLUMNS:
+        if col not in feats:
+            feats[col] = np.nan
+    return feats
+
