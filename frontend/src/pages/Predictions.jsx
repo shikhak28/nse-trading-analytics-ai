@@ -159,11 +159,12 @@ function PredictionRow({ row, badgeClass, arrow }) {
 // Stocks with no actual move yet go last.
 function sortRows(rows, sortBy) {
   if (sortBy === "model") return rows;
-  const dir = sortBy === "actual_desc" ? -1 : 1;
+  const field = sortBy.startsWith("expected") ? "expected_return" : "actual_return";
+  const dir = sortBy.endsWith("_desc") ? -1 : 1;
   return [...rows].sort((a, b) => {
-    if (a.actual_return == null) return b.actual_return == null ? 0 : 1;
-    if (b.actual_return == null) return -1;
-    return dir * (a.actual_return - b.actual_return);
+    if (a[field] == null) return b[field] == null ? 0 : 1;
+    if (b[field] == null) return -1;
+    return dir * (a[field] - b[field]);
   });
 }
 
@@ -264,11 +265,13 @@ function Predictions() {
   const [sector, setSector] = useState("");
   const [search, setSearch] = useState("");
   // Hide penny stocks below this last close (0 = show all).
-  const [minPrice, setMinPrice] = useState(100);
+  const [minPrice, setMinPrice] = useState(0);
   // Liquid = ≥₹20 Cr traded/day and not an SME / trade-to-trade series.
-  const [liquidOnly, setLiquidOnly] = useState(true);
+  const [liquidOnly, setLiquidOnly] = useState(false);
   // Rise lists keep only stocks whose expected move is also up (fall lists: down).
   const [agreeOnly, setAgreeOnly] = useState(true);
+  // Chance lists: hide stocks below this model probability (0 = show all).
+  const [minChance, setMinChance] = useState(0);
   const [sortBy, setSortBy] = useState("model");
 
   const madeOn = previousTradingDay(date);
@@ -341,7 +344,9 @@ function Predictions() {
         .sort((a, b) => direction * (Number(b.predicted_value) - Number(a.predicted_value)));
     // sign: +1 = expected must be up, -1 = expected must be down.
     const agree = (rows, sign) =>
-      !agreeOnly ? rows : rows.filter((row) => row.expected_return != null && sign * row.expected_return > 0);
+      (!agreeOnly ? rows : rows.filter((row) => row.expected_return != null && sign * row.expected_return > 0)).filter(
+        (row) => Number(row.predicted_value) >= minChance
+      );
     return {
       rankedRising: agree(rank("p_move_up_2pct", 1), 1),
       rankedFalling: agree(rank("p_move_down_2pct", 1), -1),
@@ -349,7 +354,7 @@ function Predictions() {
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
-  }, [predictions, search, minPrice, liquidOnly, agreeOnly]);
+  }, [predictions, search, minPrice, liquidOnly, agreeOnly, minChance]);
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -442,12 +447,28 @@ function Predictions() {
           </select>
 
           <select
+            value={minChance}
+            onChange={(e) => setMinChance(Number(e.target.value))}
+            aria-label="Minimum chance"
+            title="Rise/Fall lists: hide stocks whose chance is below this"
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value={0}>Any chance</option>
+            <option value={0.2}>Chance 20%+</option>
+            <option value={0.3}>Chance 30%+</option>
+            <option value={0.4}>Chance 40%+</option>
+            <option value={0.5}>Chance 50%+</option>
+          </select>
+
+          <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             aria-label="Order by"
             className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
           >
-            <option value="model">Order: model rank</option>
+            <option value="model">Order: chance, highest first</option>
+            <option value="expected_desc">Order: expected move, highest first</option>
+            <option value="expected_asc">Order: expected move, lowest first</option>
             <option value="actual_desc">Order: actual move, highest first</option>
             <option value="actual_asc">Order: actual move, lowest first</option>
           </select>
