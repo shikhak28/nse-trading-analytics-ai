@@ -267,6 +267,8 @@ function Predictions() {
   const [minPrice, setMinPrice] = useState(100);
   // Liquid = ≥₹20 Cr traded/day and not an SME / trade-to-trade series.
   const [liquidOnly, setLiquidOnly] = useState(true);
+  // Rise lists keep only stocks whose expected move is also up (fall lists: down).
+  const [agreeOnly, setAgreeOnly] = useState(true);
   const [sortBy, setSortBy] = useState("model");
 
   const madeOn = previousTradingDay(date);
@@ -337,14 +339,17 @@ function Predictions() {
       searched
         .filter((row) => row.target_label === label)
         .sort((a, b) => direction * (Number(b.predicted_value) - Number(a.predicted_value)));
+    // sign: +1 = expected must be up, -1 = expected must be down.
+    const agree = (rows, sign) =>
+      !agreeOnly ? rows : rows.filter((row) => row.expected_return != null && sign * row.expected_return > 0);
     return {
-      rankedRising: rank("p_move_up_2pct", 1),
-      rankedFalling: rank("p_move_down_2pct", 1),
-      rankedRising4: rank("p_move_up_4pct", 1),
+      rankedRising: agree(rank("p_move_up_2pct", 1), 1),
+      rankedFalling: agree(rank("p_move_down_2pct", 1), -1),
+      rankedRising4: agree(rank("p_move_up_4pct", 1), 1),
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
-  }, [predictions, search, minPrice, liquidOnly]);
+  }, [predictions, search, minPrice, liquidOnly, agreeOnly]);
 
   return (
     <div className="p-8 text-slate-900 dark:text-slate-100">
@@ -423,6 +428,17 @@ function Predictions() {
           >
             <option value="liquid">Only liquid stocks</option>
             <option value="all">All stocks</option>
+          </select>
+
+          <select
+            value={agreeOnly ? "agree" : "all"}
+            onChange={(e) => setAgreeOnly(e.target.value === "agree")}
+            aria-label="Expected move must match direction"
+            title="Rise lists: only stocks with expected move > 0. Fall lists: expected move < 0."
+            className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-2 text-sm"
+          >
+            <option value="agree">Expected agrees</option>
+            <option value="all">Ignore expected</option>
           </select>
 
           <select
