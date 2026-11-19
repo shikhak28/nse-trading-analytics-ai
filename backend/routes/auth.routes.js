@@ -6,6 +6,7 @@ const authService = require("../services/auth.service");
 const tokenService = require("../services/token.service");
 const userService = require("../services/user.service");
 const { isOwner, startOwnerSession, endOwnerSession } = require("../middleware/session");
+const { catchUpAfterLogin } = require("../services/loginCatchUp");
 
 /**
  * Redirect user to Zerodha Login
@@ -40,6 +41,8 @@ router.get("/callback", async (req, res) => {
         await startOwnerSession(req);
 
         console.log("Zerodha login successful");
+
+        catchUpAfterLogin().catch((err) => console.error("[login-catch-up] failed:", err.message));
 
         return res.redirect(process.env.FRONTEND_URL || "http://localhost:5173");
 
