@@ -216,7 +216,23 @@ async function getStoredHistoricalPrices(symbol, interval = "day", from, to, exc
   }));
 }
 
+// The dashboard asks for this on every load; concurrent reloads used to stack
+// identical full scans. Cache the result briefly and share one in-flight query.
+const SUMMARY_CACHE_MS = 5 * 60 * 1000;
+const summaryCache = new Map(); // limit -> { at, promise }
+
 async function getStoredHistoricalSummary(limit = 50) {
+  const hit = summaryCache.get(limit);
+  if (hit && Date.now() - hit.at < SUMMARY_CACHE_MS) return hit.promise;
+  const promise = queryStoredHistoricalSummary(limit).catch((err) => {
+    summaryCache.delete(limit);
+    throw err;
+  });
+  summaryCache.set(limit, { at: Date.now(), promise });
+  return promise;
+}
+
+async function queryStoredHistoricalSummary(limit) {
   const result = await db.query(`
     SELECT hp.exchange,
            hp.symbol,
@@ -234,7 +250,10 @@ async function getStoredHistoricalSummary(limit = 50) {
     -- bounding this makes it fast again -- count/first_candle end up scoped
     -- to the window too, which is fine for this "recently synced" display
     -- (it's not used anywhere as an exact lifetime total).
-    WHERE hp.candle_timestamp >= (NOW() - INTERVAL '2 months')
+    -- Even 2 months meant scanning ~35M minute rows (~4M minute candles a
+    -- week) on every dashboard load. Daily candles over 10 days answer the
+    -- same "what's synced lately" question in under a second.
+    WHERE hp.interval = 'day' AND hp.candle_timestamp >= (NOW() - INTERVAL '10 days')
     GROUP BY hp.exchange, hp.symbol, hp.interval
     ORDER BY last_candle DESC
     LIMIT $1
