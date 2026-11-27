@@ -163,6 +163,8 @@ function UpcomingResults() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search symbol or company..." className={`${field} w-56`} />
         <select value={days} onChange={(e) => setDays(Number(e.target.value))} className={field} aria-label="Days ahead">
+          <option value={-7}>Last 7 days (with price reaction)</option>
+          <option value={-30}>Last 30 days (with price reaction)</option>
           <option value={7}>Next 7 days</option>
           <option value={14}>Next 14 days</option>
           <option value={30}>Next 30 days</option>
@@ -185,7 +187,11 @@ function UpcomingResults() {
         <div className={`${card} p-6`}>Loading...</div>
       ) : rows.length === 0 ? (
         <div className={`${card} p-6 text-sm text-slate-500 dark:text-slate-400`}>
-          {data.status?.upcoming ? "No companies match these filters." : "No upcoming events yet. Upload the NSE Event Calendar CSV above."}
+          {days < 0
+            ? "No events in these past days. Upload an NSE Event Calendar CSV that covers them (choose \"All\" on NSE)."
+            : data.status?.upcoming
+              ? "No companies match these filters."
+              : "No upcoming events yet. Upload the NSE Event Calendar CSV above."}
         </div>
       ) : (
         <div className={`${card} overflow-x-auto p-5`}>
@@ -210,8 +216,22 @@ function UpcomingResults() {
                     <td className="whitespace-nowrap py-2 pr-3">
                       <div className="font-medium">{formatDay(e.event_date)}</div>
                       <div className={`text-[11px] ${e.days_left <= 3 ? "text-amber-600 dark:text-amber-400" : "text-slate-500 dark:text-slate-400"}`}>
-                        {e.days_left === 0 ? "today" : e.days_left === 1 ? "tomorrow" : `in ${e.days_left} days`}
+                        {e.days_left < 0
+                          ? `${-e.days_left} day${e.days_left === -1 ? "" : "s"} ago`
+                          : e.days_left === 0
+                            ? "today"
+                            : e.days_left === 1
+                              ? "tomorrow"
+                              : `in ${e.days_left} days`}
                       </div>
+                      {e.days_left < 0 && (e.move_day0 != null || e.move_day1 != null) && (
+                        <div className="mt-0.5 text-[11px]" title="Close-to-close move on the event day and on the next session">
+                          <span className="text-slate-500">Day </span>
+                          <span className={e.move_day0 >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{pct(e.move_day0)}</span>
+                          <span className="text-slate-500"> · Next </span>
+                          <span className={e.move_day1 >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>{pct(e.move_day1)}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="py-2 pr-3">
                       <Link to={`/history/${e.symbol}`} className="font-medium hover:text-blue-600">

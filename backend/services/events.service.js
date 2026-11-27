@@ -164,17 +164,46 @@ async function importEventCsv(text) {
 // Today in IST, as the calendar dates are IST days.
 const TODAY_SQL = "(now() AT TIME ZONE 'Asia/Kolkata')::date";
 
+/**
+ * Events in the next `days` days (results only unless resultsOnly=false).
+ * A negative `days` means the past: the last |days| days up to yesterday,
+ * each with the price reaction -- the move on the first session on/after the
+ * event date (move_day0) and on the session after (move_day1), as results
+ * often come out after the close.
+ */
 async function getUpcomingEvents({ days = 30, resultsOnly = true } = {}) {
+  const past = days < 0;
   const { rows } = await db.query(
     `SELECT e.exchange, e.symbol, COALESCE(c.company_name, e.company_name) AS company_name,
             e.purpose, e.details, to_char(e.event_date, 'YYYY-MM-DD') AS event_date,
-            (e.event_date - ${TODAY_SQL}) AS days_left, e.is_results
+            (e.event_date - ${TODAY_SQL}) AS days_left, e.is_results,
+            rx.move_day0, rx.move_day1
      FROM corporate_events e
      LEFT JOIN companies c ON c.exchange = e.exchange AND c.symbol = e.symbol
-     WHERE e.event_date >= ${TODAY_SQL} AND e.event_date <= ${TODAY_SQL} + $1::int
+     -- Daily candles for IST day D are stored at D-1 18:30 UTC.
+     LEFT JOIN LATERAL (
+       SELECT (max(close) FILTER (WHERE n = 1) / NULLIF(max(close) FILTER (WHERE n = 0), 0) - 1)::float8 AS move_day0,
+              (max(close) FILTER (WHERE n = 2) / NULLIF(max(close) FILTER (WHERE n = 1), 0) - 1)::float8 AS move_day1
+       FROM (
+         (SELECT 0 AS n, h.close FROM historical_prices h
+          WHERE $3::boolean AND h.exchange = e.exchange AND h.symbol = e.symbol AND h.interval = 'day'
+            AND h.candle_timestamp < e.event_date - interval '5 hours 30 minutes'
+            AND h.candle_timestamp >= e.event_date - interval '20 days'
+          ORDER BY h.candle_timestamp DESC LIMIT 1)
+         UNION ALL
+         (SELECT 1 + row_number() OVER (ORDER BY h.candle_timestamp) - 1, h.close FROM historical_prices h
+          WHERE $3::boolean AND h.exchange = e.exchange AND h.symbol = e.symbol AND h.interval = 'day'
+            AND h.candle_timestamp >= e.event_date - interval '5 hours 30 minutes'
+            AND h.candle_timestamp < e.event_date + interval '20 days'
+          ORDER BY h.candle_timestamp LIMIT 2)
+       ) x
+     ) rx ON true
+     WHERE CASE WHEN $3::boolean
+                THEN e.event_date >= ${TODAY_SQL} + $1::int AND e.event_date < ${TODAY_SQL}
+                ELSE e.event_date >= ${TODAY_SQL} AND e.event_date <= ${TODAY_SQL} + $1::int END
        AND ($2::boolean = false OR e.is_results)
-     ORDER BY e.event_date, e.symbol`,
-    [days, resultsOnly]
+     ORDER BY e.event_date ${past ? "DESC" : ""}, e.symbol`,
+    [days, resultsOnly, past]
   );
   return rows;
 }

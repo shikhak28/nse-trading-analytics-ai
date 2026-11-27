@@ -23,7 +23,8 @@ router.post("/upload", express.text({ type: ["text/*", "application/csv"], limit
 // Upcoming events, each with the latest model view of the stock.
 router.get("/upcoming", async (req, res) => {
   try {
-    const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 120);
+    // Negative = the past that many days (see getUpcomingEvents).
+    const days = Math.min(Math.max(Math.trunc(Number(req.query.days)) || 30, -60), 120);
     const resultsOnly = req.query.all !== "1";
     const [events, status, dayRow] = await Promise.all([
       eventsService.getUpcomingEvents({ days, resultsOnly }),
