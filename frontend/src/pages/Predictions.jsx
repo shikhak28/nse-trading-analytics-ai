@@ -268,8 +268,10 @@ function Predictions() {
   const [minPrice, setMinPrice] = useState(0);
   // Liquid = ≥₹20 Cr traded/day and not an SME / trade-to-trade series.
   const [liquidOnly, setLiquidOnly] = useState(false);
-  // Rise lists keep only stocks whose expected move is also up (fall lists: down).
-  const [agreeOnly, setAgreeOnly] = useState(true);
+  // When on, rise lists keep only stocks whose expected move is also up (fall
+  // lists: down). Off by default: expected is negative for most stocks most
+  // days, which left only a handful of stocks in the rise lists.
+  const [agreeOnly, setAgreeOnly] = useState(false);
   // Chance lists: hide stocks below this model probability (0 = show all).
   const [minChance, setMinChance] = useState(0);
   const [sortBy, setSortBy] = useState("model");
@@ -325,7 +327,7 @@ function Predictions() {
     return () => clearInterval(id);
   }, [hasLive, madeOn, sector]);
 
-  const { rankedRising, rankedFalling, rankedRising4, expectedGainers, expectedLosers } = useMemo(() => {
+  const { rankedSteady, rankedFalling, rankedRising4, expectedGainers, expectedLosers } = useMemo(() => {
     // Every row also carries the stock's expected % move (next_day_return),
     // so the chance lists can show expected vs actual side by side.
     const expected = new Map(
@@ -347,10 +349,29 @@ function Predictions() {
       (!agreeOnly ? rows : rows.filter((row) => row.expected_return != null && sign * row.expected_return > 0)).filter(
         (row) => Number(row.predicted_value) >= minChance
       );
+    // The 2% and 4% chances move together (a jumpy stock scores high on
+    // both), so the two rise lists used to show mostly the same stocks. Now:
+    // "Big jump" = by chance of 4%+; "Steady rise" = by chance of 2-4% (chance
+    // 2%+ minus chance 4%+), leaving out the Big jump list's top stocks.
+    const rankedRising4 = agree(rank("p_move_up_4pct", 1), 1);
+    const allChance4 = new Map(
+      searched.filter((r) => r.target_label === "p_move_up_4pct").map((r) => [`${r.exchange}:${r.symbol}`, Number(r.predicted_value)])
+    );
+    const bigJump = new Set(rankedRising4.slice(0, TOP_N).map((r) => `${r.exchange}:${r.symbol}`));
+    const rankedSteady = agree(
+      rank("p_move_up_2pct", 1)
+        .filter((r) => !bigJump.has(`${r.exchange}:${r.symbol}`) && allChance4.has(`${r.exchange}:${r.symbol}`))
+        .map((r) => {
+          const p4 = allChance4.get(`${r.exchange}:${r.symbol}`);
+          return { ...r, chance_up_2: Number(r.predicted_value), predicted_value: Math.max(Number(r.predicted_value) - p4, 0) };
+        })
+        .sort((a, b) => b.predicted_value - a.predicted_value),
+      1
+    );
     return {
-      rankedRising: agree(rank("p_move_up_2pct", 1), 1),
+      rankedSteady,
       rankedFalling: agree(rank("p_move_down_2pct", 1), -1),
-      rankedRising4: agree(rank("p_move_up_4pct", 1), 1),
+      rankedRising4,
       expectedGainers: rank("next_day_return", 1).slice(0, TOP_N),
       expectedLosers: rank("next_day_return", -1).slice(0, TOP_N),
     };
@@ -505,23 +526,9 @@ function Predictions() {
         <>
           {mode === "topN" ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PredictionList
-                title="Likely to Rise ≥2%"
-                rows={rankedRising.slice(0, TOP_N)}
-                arrow="▲"
-                sortBy={sortBy}
-                badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-              />
-              <PredictionList
-                title="Likely to Fall ≥2%"
-                rows={rankedFalling.slice(0, TOP_N)}
-                arrow="▼"
-                sortBy={sortBy}
-                badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
-              />
               {rankedRising4.length > 0 && (
                 <PredictionList
-                  title="Likely to Rise ≥4%"
+                  title="Big jump: likely to rise ≥4%"
                   rows={rankedRising4.slice(0, TOP_N)}
                   arrow="▲"
                   sortBy={sortBy}
@@ -529,12 +536,26 @@ function Predictions() {
                   badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
                 />
               )}
+              <PredictionList
+                title="Likely to Fall ≥2%"
+                rows={rankedFalling.slice(0, TOP_N)}
+                arrow="▼"
+                sortBy={sortBy}
+                badgeClass="bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+              />
+              <PredictionList
+                title="Steady rise: likely to rise 2–4% (chance of 2–4%)"
+                rows={rankedSteady.slice(0, TOP_N)}
+                arrow="▲"
+                sortBy={sortBy}
+                badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+              />
             </div>
           ) : (
             <div className="space-y-8">
               <TierSection
-                title="Likely to Rise ≥2% -- by confidence"
-                rankedRows={rankedRising}
+                title="Steady rise 2–4% -- by chance of 2–4%"
+                rankedRows={rankedSteady}
                 arrow="▲"
                 sortBy={sortBy}
                 badgeClass="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
@@ -548,7 +569,7 @@ function Predictions() {
               />
               {rankedRising4.length > 0 && (
                 <TierSection
-                  title="Likely to Rise ≥4% -- by confidence"
+                  title="Big jump ≥4% -- by confidence"
                   rankedRows={rankedRising4}
                   arrow="▲"
                   sortBy={sortBy}

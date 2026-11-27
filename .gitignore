@@ -54,3 +54,7 @@ __pycache__/
 pv_research/
 research_notes/
 xai_presentation/
+
+# WhatsApp session (scripts/whatsappLink.js) and daily picks images
+backend/.whatsapp-auth/
+backend/daily-picks/

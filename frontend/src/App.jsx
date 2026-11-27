@@ -23,6 +23,8 @@ const ModelHealth = lazy(() => import("./pages/ModelHealth"));
 const TrendStocks = lazy(() => import("./pages/TrendStocks"));
 const UpcomingResults = lazy(() => import("./pages/UpcomingResults"));
 const TopPicksHistory = lazy(() => import("./pages/TopPicksHistory"));
+const BigMovers = lazy(() => import("./pages/BigMovers"));
+const UpperCircuit = lazy(() => import("./pages/UpperCircuit"));
 
 function AuthenticatedRoutes() {
   return (
@@ -39,6 +41,8 @@ function AuthenticatedRoutes() {
         <Route path="/trends" element={<TrendStocks />} />
         <Route path="/results" element={<UpcomingResults />} />
         <Route path="/top-picks" element={<TopPicksHistory />} />
+        <Route path="/big-movers" element={<BigMovers />} />
+        <Route path="/upper-circuit" element={<UpperCircuit />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />

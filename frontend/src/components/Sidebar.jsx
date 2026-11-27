@@ -13,6 +13,8 @@ function Sidebar() {
           { to: '/history', label: 'History' },
           { to: '/predictions', label: 'Predictions' },
           { to: '/top-picks', label: 'Top 5 History' },
+          { to: '/big-movers', label: 'Big Movers' },
+          { to: '/upper-circuit', label: 'Upper Circuit' },
           { to: '/price-groups', label: 'Price Groups' },
           { to: '/trends', label: 'Trend Stocks' },
           { to: '/results', label: 'Upcoming Results' },

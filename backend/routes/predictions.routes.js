@@ -1,6 +1,8 @@
 const express = require("express");
 const { attachLiveActual } = require("../services/liveActual");
 const { attachNextResult } = require("../services/events.service");
+const { getBigMovers } = require("../services/bigMovers.service");
+const { getUpperCircuits } = require("../services/upperCircuit.service");
 
 const router = express.Router();
 
@@ -57,6 +59,36 @@ router.get("/price-groups", async (req, res) => {
     return res.json({ success: true, results: await attachNextResult(await attachLiveActual(stocks)) });
   } catch (err) {
     console.error("Price group fetch error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * Stocks that rose 5-20% the day after `day`'s prediction, with the model's
+ * view of them (see bigMovers.service.js). Registered before "/:id".
+ */
+router.get("/big-movers", async (req, res) => {
+  const day = req.query.day?.trim();
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return res.status(400).json({ success: false, message: "day must be YYYY-MM-DD" });
+  }
+  try {
+    return res.json({ success: true, ...(await getBigMovers({ day })) });
+  } catch (err) {
+    console.error("Big movers fetch error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * Stocks locked at a 10% or 20% upper circuit over the last 10 trading days,
+ * with what the model said the evening before (see upperCircuit.service.js).
+ */
+router.get("/upper-circuit", async (req, res) => {
+  try {
+    return res.json({ success: true, ...(await getUpperCircuits({ days: 10, bands: [10, 20] })) });
+  } catch (err) {
+    console.error("Upper circuit fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 });

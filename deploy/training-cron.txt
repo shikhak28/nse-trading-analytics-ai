@@ -12,3 +12,10 @@
 # The whole chain is wrapped in ( ) so every step's output lands in cron.log,
 # not just rank.py's.
 0 18 * * 1-5 cd /home/ubuntu/stock-platform/training && ( /home/ubuntu/stock-platform/training/venv/bin/python trading_calendar.py && /home/ubuntu/stock-platform/training/venv/bin/python build_dataset.py && /home/ubuntu/stock-platform/training/venv/bin/python predict.py && /home/ubuntu/stock-platform/training/venv/bin/python verify.py && /home/ubuntu/stock-platform/training/venv/bin/python rank.py ) >> /home/ubuntu/stock-platform/training/cron.log 2>&1
+
+# Daily pick images on WhatsApp (backend/scripts/sendDailyPicks.js), sent at
+# 12:00 KST = 8:30 AM IST = 03:00 UTC on weekdays, before the market opens:
+# the previous evening's predictions for today's session. Skips NSE holidays,
+# sends once per prediction day (the 03:15 run is a retry). Needs WHATSAPP_TO
+# in .env and a one-time `node scripts/whatsappLink.js <number>`.
+0,15 3 * * 1-5 cd /home/ubuntu/stock-platform/backend && /usr/bin/node scripts/sendDailyPicks.js >> /home/ubuntu/stock-platform/backend/daily-picks.log 2>&1
