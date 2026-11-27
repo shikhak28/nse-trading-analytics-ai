@@ -81,13 +81,16 @@ router.get("/big-movers", async (req, res) => {
 });
 
 /**
- * Stocks that rose 5-10%, 10-20% or 20%+ in a day over the last 10 trading
- * days, flagged if locked at an upper circuit, with what the model said the
+ * Stocks that rose 5-10%, 10-20% or 20%+ in a day, ?from=&to= (default the
+ * last 10 trading days), flagged if locked at an upper circuit, with what the model said the
  * evening before (see upperCircuit.service.js).
  */
 router.get("/upper-circuit", async (req, res) => {
+  const { from, to } = req.query;
+  const isDay = (d) => d == null || /^\d{4}-\d{2}-\d{2}$/.test(d);
+  if (!isDay(from) || !isDay(to)) return res.status(400).json({ success: false, message: "from/to must be YYYY-MM-DD" });
   try {
-    return res.json({ success: true, ...(await getUpperCircuits({ days: 10 })) });
+    return res.json({ success: true, ...(await getUpperCircuits({ from, to })) });
   } catch (err) {
     console.error("Upper circuit fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
