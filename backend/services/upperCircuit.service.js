@@ -1,21 +1,29 @@
 const db = require("../config/db");
 const { LIQUID_MIN_VALUE } = require("./signal");
 
-// Stocks that closed locked at an upper circuit, from daily candles: closed
-// at the day's high, and the day's change equals a circuit band to within one
-// price tick (0.01) or 0.15 points. Each day is matched to its nearest band
-// among all four (2/5/10/20%) before filtering, so a +5% day never counts as
-// a 10% circuit. Stocks that touched the circuit and fell back are not
-// caught: the day's real circuit limit is not stored.
+// Stocks that rose 5% or more in a day (from daily candles), in three ranges
+// -- 5-10%, 10-20%, 20%+ -- each flagged if it closed locked at an upper
+// circuit: closed at the day's high, and the change equals a circuit band
+// (2/5/10/20%) to within one price tick (0.01) or 0.15 points. A stock that
+// touched the circuit and fell back is not flagged: the day's real circuit
+// limit is not stored.
 const ALL_BANDS = [2, 5, 10, 20];
+// Ranges by the day's change. 4.9 / 9.9 / 19.9 so that a 5% / 10% / 20%
+// circuit (often +4.97% or +9.99% after tick rounding) lands in its range.
+const RANGES = [
+    { key: "20+", min: 19.9 },
+    { key: "10-20", min: 9.9 },
+    { key: "5-10", min: 4.9 },
+];
+const rangeOf = (chg) => RANGES.find((r) => chg >= r.min)?.key ?? null;
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new Map();
 
-async function getUpperCircuits({ days = 10, bands = [5, 10, 20] } = {}) {
-    const key = `${days}:${bands.join(",")}`;
+async function getUpperCircuits({ days = 10 } = {}) {
+    const key = String(days);
     const hit = cache.get(key);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.promise;
-    const promise = build(days, bands).catch((err) => {
+    const promise = build(days).catch((err) => {
         cache.delete(key);
         throw err;
     });
@@ -23,7 +31,7 @@ async function getUpperCircuits({ days = 10, bands = [5, 10, 20] } = {}) {
     return promise;
 }
 
-async function build(days, bands) {
+async function build(days) {
     // Trading days = days RELIANCE has a daily candle (an index lookup; a
     // scan over all stocks would also read every minute candle). One extra,
     // for the prediction made the evening before the oldest day.
@@ -54,19 +62,20 @@ async function build(days, bands) {
            ) hp
            WHERE c.exchange = 'NSE'
          ), m AS (
+           -- Nearest circuit band to the day's change, for the circuit flag.
            SELECT DISTINCT ON (d.symbol, d.day) d.*, b.band, (d.close / d.pc - 1) * 100 AS chg
            FROM d CROSS JOIN unnest($2::int[]) AS b(band)
-           WHERE d.pc > 0 AND d.close > d.pc AND d.close >= d.high - 0.001 AND d.day >= $1::date
+           WHERE d.pc > 0 AND d.close >= d.pc * 1.049 AND d.day >= $1::date
            ORDER BY d.symbol, d.day, abs((d.close / d.pc - 1) * 100 - b.band)
          )
-         SELECT m.day::text AS day, m.symbol, c.company_name, c.sector, m.band, m.pc AS prev_close,
-                m.close, m.chg, m.volume
+         SELECT m.day::text AS day, m.symbol, c.company_name, c.sector, m.pc AS prev_close, m.close, m.chg, m.volume,
+                CASE WHEN m.close >= m.high - 0.001
+                      AND abs(m.chg - m.band) <= greatest(0.15, 100 * 0.011 / m.pc)
+                      AND abs(m.chg - m.band) < m.band * 0.25
+                     THEN m.band END AS circuit
          FROM m JOIN companies c ON c.exchange = 'NSE' AND c.symbol = m.symbol
-         WHERE m.band = ANY($3::int[])
-           AND abs(m.chg - m.band) <= greatest(0.15, 100 * 0.011 / m.pc)
-           AND abs(m.chg - m.band) < m.band * 0.25
-         ORDER BY m.day DESC, m.band DESC, m.chg DESC`,
-        [shown.at(-1), ALL_BANDS, bands]
+         ORDER BY m.day DESC, m.chg DESC`,
+        [shown.at(-1), ALL_BANDS]
     );
     if (!rows.length) return { days: shown, rows: [] };
 
@@ -123,7 +132,8 @@ async function build(days, bands) {
                 symbol: r.symbol,
                 company: r.company_name,
                 sector: r.sector,
-                band: r.band,
+                range: rangeOf(r.chg),
+                circuit: r.circuit,
                 prevClose: Number(r.prev_close.toFixed(2)),
                 close: Number(r.close.toFixed(2)),
                 change: Number(r.chg.toFixed(2)),
