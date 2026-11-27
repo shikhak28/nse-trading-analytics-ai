@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const db = require("../config/db");
-const { readPdfAsJson, modelName } = require("./gemini");
+const { readPdfAsJson } = require("./gemini");
 const { getPriceGroupStocks } = require("./prediction.service");
 
 // Reads a company's results PDF with Gemini and explains it in simple
@@ -107,7 +107,7 @@ async function explainReport({ symbol, pdf, fileName }) {
     const { rows: seen } = await db.query(`SELECT * FROM financial_reports WHERE symbol = $1 AND file_sha256 = $2`, [sym, sha]);
     if (seen.length) return { ...present(seen[0], modelView), cached: true };
 
-    const r = await readPdfAsJson({ pdf, prompt: prompt(comp[0], modelView), schema: SCHEMA });
+    const { json: r, model } = await readPdfAsJson({ pdf, prompt: prompt(comp[0], modelView), schema: SCHEMA });
     const periodEnd = /^\d{4}-\d{2}-\d{2}$/.test(r.period_end || "") ? r.period_end : null;
     const { rows } = await db.query(
         `INSERT INTO financial_reports
@@ -118,7 +118,7 @@ async function explainReport({ symbol, pdf, fileName }) {
         [
             sym, r.period_label ?? null, periodEnd, r.consolidated ?? null, r.unit ?? null,
             r.revenue ?? null, r.revenue_prev_year ?? null, r.net_profit ?? null, r.net_profit_prev_year ?? null,
-            r.eps ?? null, r.eps_prev_year ?? null, r.verdict ?? null, r, fileName ?? null, sha, modelName(),
+            r.eps ?? null, r.eps_prev_year ?? null, r.verdict ?? null, r, fileName ?? null, sha, model,
         ]
     );
     return { ...present(rows[0], modelView), cached: false };
