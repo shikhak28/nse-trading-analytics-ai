@@ -94,6 +94,7 @@ async function importEventCsv(text) {
   const resolve = (sym) => [sym, `${sym}-BE`, `${sym}-SM`, `${sym}-ST`, `${sym}-BZ`].find((s) => known.has(s));
 
   const events = [];
+  const byKey = new Map();
   const unmatched = new Set();
   let badDates = 0;
   for (const r of rows.slice(1)) {
@@ -111,6 +112,17 @@ async function importEventCsv(text) {
     }
     const purpose = (r[cols.purpose] || "").trim() || "Board Meeting";
     const details = cols.details >= 0 ? (r[cols.details] || "").trim() : "";
+    // NSE's CSV can list the same event twice (and "All" downloads overlap
+    // "Forthcoming" ones). One INSERT ... ON CONFLICT can't touch a row twice,
+    // so keep one row per (symbol, date, purpose), joining their details.
+    const key = `${symbol}|${date}|${purpose}`;
+    const seen = byKey.get(key);
+    if (seen) {
+      if (details && !seen.details.includes(details)) seen.details = seen.details ? `${seen.details}; ${details}` : details;
+      seen.isResults = seen.isResults || RESULTS_RE.test(details);
+      continue;
+    }
+    byKey.set(key, null); // filled just below
     events.push({
       symbol,
       company: cols.company >= 0 ? (r[cols.company] || "").trim() : null,
@@ -119,6 +131,7 @@ async function importEventCsv(text) {
       date,
       isResults: RESULTS_RE.test(purpose) || RESULTS_RE.test(details),
     });
+    byKey.set(key, events.at(-1));
   }
 
   for (let i = 0; i < events.length; i += 500) {
