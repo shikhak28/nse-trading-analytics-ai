@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { getPriceGroupStocks } = require("./prediction.service");
 const { attachLiveActual } = require("./liveActual");
 const { attachNextResult } = require("./events.service");
+const { isLiquid } = require("./signal");
 
 // Steps are counted in trading days back from each stock's newest day
 // candle (calendar periods would make the current, partial one count). A
@@ -72,6 +73,7 @@ async function computeTrends(asOf = null) {
       last_close: closes[0],
       last_volume: row.last_volume,
       avg_traded_value: row.avg_traded_value,
+      liquid: isLiquid(row),
     };
 
     for (const period of PERIODS) {

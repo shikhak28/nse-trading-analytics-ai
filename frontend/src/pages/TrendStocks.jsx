@@ -13,6 +13,8 @@ const field = "rounded-full border border-slate-200 dark:border-slate-800 bg-whi
 // Minimum average daily traded value (₹) over the last 20 days.
 const LIQUIDITY_OPTIONS = [
   { value: 0, label: "All stocks" },
+  // Same rule as the Predictions page: ₹20 cr+/day and not -SM/-ST/-BE/-BZ.
+  { value: "liquid", label: "Only liquid stocks" },
   { value: 2e7, label: "₹2 cr+/day" },
   { value: 2e8, label: "₹20 cr+/day" },
 ];
@@ -172,7 +174,7 @@ function TrendStocks() {
     const needle = search.trim().toLowerCase();
     const list = (data.periods?.[period]?.[view] ?? []).filter(
       (s) =>
-        (s.avg_traded_value ?? 0) >= minValue &&
+        (minValue === "liquid" ? s.liquid : (s.avg_traded_value ?? 0) >= minValue) &&
         (signalFilter === "all" || s.signal === signalFilter) &&
         (!needle || s.symbol.toLowerCase().includes(needle) || s.company_name?.toLowerCase().includes(needle))
     );
@@ -255,7 +257,7 @@ function TrendStocks() {
             className={`${field} w-56`}
           />
           <select value={minValue} onChange={(e) => {
-              setMinValue(Number(e.target.value));
+              setMinValue(e.target.value === "liquid" ? "liquid" : Number(e.target.value));
               setPage(0);
             }} className={field} aria-label="Minimum daily traded value">
             {LIQUIDITY_OPTIONS.map((o) => (
