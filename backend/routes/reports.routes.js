@@ -4,11 +4,12 @@ const { explainReport, listReports } = require("../services/financialReports.ser
 const router = express.Router();
 
 /**
- * Explain a results PDF. The body is the raw PDF (Content-Type:
- * application/pdf), so the global JSON parser leaves it alone.
+ * Explain a results filing: PDF, NSE XBRL (.xml) or iXBRL page (.html). The
+ * body is the raw file, so the global JSON parser leaves it alone.
  *   POST /api/reports/explain?symbol=TCS&name=tcs-q2.pdf
  */
-router.post("/explain", express.raw({ type: "application/pdf", limit: "20mb" }), async (req, res) => {
+const DOC_TYPES = ["application/pdf", "application/xml", "text/xml", "text/html", "application/xhtml+xml", "application/octet-stream"];
+router.post("/explain", express.raw({ type: DOC_TYPES, limit: "20mb" }), async (req, res) => {
   try {
     const result = await explainReport({ symbol: req.query.symbol, pdf: req.body, fileName: req.query.name });
     return res.json({ success: true, result });

@@ -150,7 +150,9 @@ function ResultsReader() {
     try {
       const { data } = await axios.post("/api/reports/explain", file, {
         params: { symbol: symbol.trim().toUpperCase(), name: file.name },
-        headers: { "Content-Type": "application/pdf" },
+        headers: {
+          "Content-Type": /\.xml$/i.test(file.name) ? "application/xml" : /\.html?$/i.test(file.name) ? "text/html" : "application/pdf",
+        },
         timeout: 240000,
       });
       if (data.success) {
@@ -168,7 +170,7 @@ function ResultsReader() {
     <div className="mx-auto max-w-5xl p-4 text-slate-900 sm:p-8 dark:text-slate-100">
       <h1 className="text-3xl font-semibold">Results Reader</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-        Upload a company's quarterly results PDF (from NSE or the company's website). AI reads it and explains the numbers in simple
+        Upload a company's quarterly results: the PDF, or NSE's XBRL (.xml) or iXBRL (.html) file. AI reads it and explains the numbers in simple
         words, next to our model's view.
       </p>
 
@@ -183,8 +185,8 @@ function ResultsReader() {
         />
         <input
           type="file"
-          accept="application/pdf"
-          aria-label="Results PDF"
+          accept=".pdf,.xml,.html,.htm,application/pdf,application/xml,text/xml,text/html"
+          aria-label="Results PDF or XBRL file"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm dark:file:bg-slate-800 dark:file:text-slate-200"
         />

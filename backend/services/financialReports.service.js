@@ -3,7 +3,7 @@ const db = require("../config/db");
 const { readPdfAsJson } = require("./gemini");
 const { getPriceGroupStocks } = require("./prediction.service");
 
-// Reads a company's results PDF with Gemini and explains it in simple
+// Reads a company's results filing (PDF, NSE XBRL .xml or iXBRL .html) with Gemini and explains it in simple
 // Hinglish, next to what our model says about the stock. Each reading is
 // stored (financial_reports) so the same PDF is never sent twice and the
 // numbers can later feed the model.
@@ -38,8 +38,11 @@ const SCHEMA = {
 
 function prompt(company, modelView) {
     return [
-        `This PDF is a financial results filing of ${company.company_name} (NSE: ${company.symbol}).`,
+        `This document is a financial results filing of ${company.company_name} (NSE: ${company.symbol}): a PDF, or the`,
+        "filing's XBRL facts / web page as text.",
         "Read it and fill in the JSON. Rules:",
+        "- XBRL facts are listed as `Name [period]: value`; money is in rupees unless LevelOfRounding says otherwise. Convert to one sensible unit (usually ₹ crore). The quarter is the 3-month period; a 6-month (half-year) total may also be given.",
+        "- If only this quarter and the half-year total are given, previous quarter = half-year total minus this quarter.",
         "- Take numbers exactly from the report's tables. Prefer consolidated figures if both are given. Leave a number null if it is not in the report; never guess.",
         "- All money figures in the single unit you report in `unit`.",
         "- Write summary, good_points, concerns and verdict_reason in very simple Hinglish (Hindi in Roman script mixed with easy English words), short sentences, for someone who is not a finance expert. Mention growth versus last year in %.",
@@ -94,20 +97,63 @@ function present(row, modelView) {
     };
 }
 
+// XBRL instance -> "Name [start..end]: value" lines: far smaller and clearer
+// for the model than the raw XML (contexts, namespaces, typed members).
+function xbrlToText(xml) {
+    const periods = new Map();
+    for (const m of xml.matchAll(/<xbrli:context id="([^"]+)">([\s\S]*?)<\/xbrli:context>/g)) {
+        if (m[2].includes("<xbrli:scenario>")) continue; // breakdowns (segments etc.) are skipped
+        const start = /<xbrli:startDate>([^<]+)/.exec(m[2])?.[1];
+        const end = /<xbrli:endDate>([^<]+)/.exec(m[2])?.[1];
+        const inst = /<xbrli:instant>([^<]+)/.exec(m[2])?.[1];
+        periods.set(m[1], inst ? `as of ${inst}` : `${start}..${end}`);
+    }
+    const lines = [];
+    for (const m of xml.matchAll(/<[\w-]+:(\w+) contextRef="([^"]+)"[^>]*>([^<]{1,300})</g)) {
+        const period = periods.get(m[2]);
+        if (period) lines.push(`${m[1]} [${period}]: ${m[3].trim()}`);
+    }
+    return lines.join("\n");
+}
+
+function htmlToText(html) {
+    return html
+        .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi, "\n")
+        .replace(/<\/t[dh]>/gi, " | ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/[ \t]+/g, " ")
+        .replace(/\n\s*\n+/g, "\n")
+        .slice(0, 300000);
+}
+
+// PDF bytes go to Gemini as they are; XBRL and HTML become plain text.
+function documentFrom(buf) {
+    if (buf.subarray(0, 5).toString() === "%PDF-") return { pdf: buf };
+    const text = buf.toString("utf8").replace(/^\uFEFF/, "").trimStart();
+    if (/^<\?xml|^<xbrli:xbrl/.test(text) && text.includes("xbrl")) {
+        const facts = xbrlToText(text);
+        if (facts) return { text: facts };
+    }
+    if (/^<(!doctype|html|\?xml)/i.test(text)) return { text: htmlToText(text) };
+    return null;
+}
+
 async function explainReport({ symbol, pdf, fileName }) {
     const sym = String(symbol || "").trim().toUpperCase();
     const { rows: comp } = await db.query(`SELECT symbol, company_name FROM companies WHERE exchange = 'NSE' AND symbol = $1`, [sym]);
     if (!comp.length) throw Object.assign(new Error(`Unknown NSE symbol: ${sym}`), { status: 400 });
-    if (!pdf?.length || pdf.subarray(0, 5).toString() !== "%PDF-") {
-        throw Object.assign(new Error("Please upload a PDF file."), { status: 400 });
-    }
+    const doc = pdf?.length ? documentFrom(pdf) : null;
+    if (!doc) throw Object.assign(new Error("Please upload the results PDF, or NSE's XBRL (.xml) / iXBRL (.html) file."), { status: 400 });
 
     const sha = crypto.createHash("sha256").update(pdf).digest("hex");
     const modelView = await modelViewFor(sym);
     const { rows: seen } = await db.query(`SELECT * FROM financial_reports WHERE symbol = $1 AND file_sha256 = $2`, [sym, sha]);
     if (seen.length) return { ...present(seen[0], modelView), cached: true };
 
-    const { json: r, model } = await readPdfAsJson({ pdf, prompt: prompt(comp[0], modelView), schema: SCHEMA });
+    const { json: r, model } = await readPdfAsJson({ ...doc, prompt: prompt(comp[0], modelView), schema: SCHEMA });
     const periodEnd = /^\d{4}-\d{2}-\d{2}$/.test(r.period_end || "") ? r.period_end : null;
     const { rows } = await db.query(
         `INSERT INTO financial_reports

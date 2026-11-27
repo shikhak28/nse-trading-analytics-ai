@@ -17,16 +17,23 @@ function modelName() {
 }
 
 /**
- * Sends a PDF and a prompt, and returns { json, model }: the JSON object
+ * Sends a PDF (or a document as plain text) and a prompt, and returns { json, model }: the JSON object
  * Gemini produces for `schema` (an OpenAPI-style schema, as Gemini's
  * responseSchema expects) and the model that answered.
  */
-async function readPdfAsJson({ pdf, prompt, schema }) {
+async function readPdfAsJson({ pdf, text, prompt, schema }) {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw Object.assign(new Error("GEMINI_API_KEY is not set on the server."), { status: 503 });
 
     const body = {
-        contents: [{ parts: [{ inline_data: { mime_type: "application/pdf", data: pdf.toString("base64") } }, { text: prompt }] }],
+        contents: [
+            {
+                parts: [
+                    pdf ? { inline_data: { mime_type: "application/pdf", data: pdf.toString("base64") } } : { text: `DOCUMENT:\n${text}` },
+                    { text: prompt },
+                ],
+            },
+        ],
         generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema: schema },
     };
     let lastError;
