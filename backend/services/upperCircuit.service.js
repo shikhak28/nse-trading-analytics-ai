@@ -11,7 +11,7 @@ const ALL_BANDS = [2, 5, 10, 20];
 const CACHE_MS = 10 * 60 * 1000;
 const cache = new Map();
 
-async function getUpperCircuits({ days = 10, bands = [10, 20] } = {}) {
+async function getUpperCircuits({ days = 10, bands = [5, 10, 20] } = {}) {
     const key = `${days}:${bands.join(",")}`;
     const hit = cache.get(key);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.promise;

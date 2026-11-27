@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { formatDay } from "../utils/tradingDays";
 
-// Stocks locked at a 10% or 20% upper circuit over the last 10 trading days,
+// Stocks locked at a 5%, 10% or 20% upper circuit over the last 10 trading days,
 // and what the model said about them the evening before.
 
 const BANDS = [
-  { key: "all", label: "10% and 20%" },
-  { key: "20", label: "20% only" },
-  { key: "10", label: "10% only" },
+  { key: "all", label: "All (5%, 10%, 20%)" },
+  { key: "20", label: "20%" },
+  { key: "10", label: "10%" },
+  { key: "5", label: "5%" },
 ];
 const UNIVERSES = [
   { key: "all", label: "All stocks" },
@@ -81,8 +82,8 @@ function UpperCircuit() {
     <div className="mx-auto max-w-6xl p-4 text-slate-900 sm:p-8 dark:text-slate-100">
       <h1 className="text-3xl font-semibold">Upper Circuit</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-        Stocks that closed locked at a 10% or 20% upper circuit in the last 10 trading days, and what the model said the evening
-        before. Rank is the stock's place in the model's Rise 4%+ list (1 = top). Stocks that touched the circuit and fell back
+        Stocks that closed locked at a 5%, 10% or 20% upper circuit in the last 10 trading days, and what the model said the evening
+        before: its confidence (chance of rising 4%+ and 2%+) and its rank in the Rise 4%+ list (1 = top). Stocks that touched the circuit and fell back
         are not included.
       </p>
 
@@ -129,7 +130,10 @@ function UpperCircuit() {
                               Close <b className="font-mono text-slate-700 dark:text-slate-200">{money(r.close)}</b>
                             </span>
                             <span>
-                              Chance 4%+ <b className="font-mono text-slate-700 dark:text-slate-200">{chance(r.chanceUp4)}</b>
+                              Confidence 4%+ <b className="font-mono text-slate-700 dark:text-slate-200">{chance(r.chanceUp4)}</b>
+                            </span>
+                            <span>
+                              Confidence 2%+ <b className="font-mono text-slate-700 dark:text-slate-200">{chance(r.chanceUp2)}</b>
                             </span>
                             <span>
                               Rank <b className={`font-mono ${rankTone(r.rankUp4)}`}>{r.rankUp4 ?? "—"}</b>
@@ -151,8 +155,8 @@ function UpperCircuit() {
                             <th className="px-3 py-2 font-medium">Circuit</th>
                             <th className="px-3 py-2 text-right font-medium">Prev close</th>
                             <th className="px-3 py-2 text-right font-medium">Close</th>
-                            <th className="px-3 py-2 text-right font-medium">Chance 4%+</th>
-                            <th className="px-3 py-2 text-right font-medium">Chance 2%+</th>
+                            <th className="px-3 py-2 text-right font-medium">Confidence 4%+</th>
+                            <th className="px-3 py-2 text-right font-medium">Confidence 2%+</th>
                             <th className="px-3 py-2 text-right font-medium">Model rank</th>
                             <th className="px-3 py-2 text-right font-medium">Expected</th>
                           </tr>

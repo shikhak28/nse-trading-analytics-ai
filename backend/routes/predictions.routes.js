@@ -81,12 +81,12 @@ router.get("/big-movers", async (req, res) => {
 });
 
 /**
- * Stocks locked at a 10% or 20% upper circuit over the last 10 trading days,
+ * Stocks locked at a 5%, 10% or 20% upper circuit over the last 10 trading days,
  * with what the model said the evening before (see upperCircuit.service.js).
  */
 router.get("/upper-circuit", async (req, res) => {
   try {
-    return res.json({ success: true, ...(await getUpperCircuits({ days: 10, bands: [10, 20] })) });
+    return res.json({ success: true, ...(await getUpperCircuits({ days: 10, bands: [5, 10, 20] })) });
   } catch (err) {
     console.error("Upper circuit fetch error:", err);
     return res.status(500).json({ success: false, message: err.message });
