@@ -24,6 +24,12 @@ const UNIVERSES = [
 const signed = (v) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`);
 const money = (v) => (v == null ? "—" : `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`);
 const chance = (v) => (v == null ? "—" : `${v.toFixed(1)}%`);
+// "3.1x" = three times the average stock's chance that evening.
+function Times({ x }) {
+  if (x == null) return null;
+  const tone = x >= 2 ? "text-emerald-600 dark:text-emerald-400" : x >= 1 ? "text-slate-500" : "text-red-600 dark:text-red-400";
+  return <span className={`ml-1 text-xs font-semibold ${tone}`}>({x}x)</span>;
+}
 
 function rankTone(rank) {
   if (rank == null) return "text-slate-400";
@@ -92,7 +98,8 @@ function UpperCircuit() {
       <h1 className="text-3xl font-semibold">Upper Circuit</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Stocks that rose 5% or more in a day in the last 10 trading days, and what the model said the evening before: its
-        confidence (chance of rising 4%+ and 2%+) and its rank in the Rise 4%+ list (1 = top). "Circuit" marks a stock that closed
+        confidence (chance of rising 4%+ and 2%+), how many times the average stock's chance that was (e.g. 3x), and its
+        rank in the Rise 4%+ list (1 = top). "Circuit" marks a stock that closed
         locked at its upper circuit; one that touched it and fell back is not marked.
       </p>
 
@@ -147,9 +154,11 @@ function UpperCircuit() {
                             </span>
                             <span>
                               Confidence 4%+ <b className="font-mono text-slate-700 dark:text-slate-200">{chance(r.chanceUp4)}</b>
+                              <Times x={r.timesNormalUp4} />
                             </span>
                             <span>
                               Confidence 2%+ <b className="font-mono text-slate-700 dark:text-slate-200">{chance(r.chanceUp2)}</b>
+                              <Times x={r.timesNormalUp2} />
                             </span>
                             <span>
                               Rank <b className={`font-mono ${rankTone(r.rankUp4)}`}>{r.rankUp4 ?? "—"}</b>
@@ -198,8 +207,14 @@ function UpperCircuit() {
                               </td>
                               <td className="px-3 py-2 text-right font-mono tabular-nums">{money(r.prevClose)}</td>
                               <td className="px-3 py-2 text-right font-mono tabular-nums">{money(r.close)}</td>
-                              <td className="px-3 py-2 text-right font-mono tabular-nums">{chance(r.chanceUp4)}</td>
-                              <td className="px-3 py-2 text-right font-mono tabular-nums">{chance(r.chanceUp2)}</td>
+                              <td className="px-3 py-2 text-right font-mono tabular-nums">
+                                {chance(r.chanceUp4)}
+                                <Times x={r.timesNormalUp4} />
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono tabular-nums">
+                                {chance(r.chanceUp2)}
+                                <Times x={r.timesNormalUp2} />
+                              </td>
                               <td className={`px-3 py-2 text-right font-mono tabular-nums ${rankTone(r.rankUp4)}`}>{r.rankUp4 ?? "—"}</td>
                               <td className="px-3 py-2 text-right font-mono tabular-nums">{signed(r.expected)}</td>
                             </tr>

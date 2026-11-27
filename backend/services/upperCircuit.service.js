@@ -109,6 +109,22 @@ async function build(days) {
         if (p.target_label === "next_day_return") m.expected = p.v;
         model.set(k, m);
     }
+    // The average stock's chance each evening: a chance is shown as "times
+    // normal" against it, since 12% for a 4% jump is high when the average
+    // stock gets 4%.
+    const avg = new Map(); // `${evening}:${label}` -> { sum, n }
+    for (const p of preds) {
+        if (p.target_label === "next_day_return") continue;
+        const k = `${p.evening}:${p.target_label}`;
+        const a = avg.get(k) || { sum: 0, n: 0 };
+        a.sum += p.v;
+        a.n += 1;
+        avg.set(k, a);
+    }
+    const timesNormal = (v, evening, label) => {
+        const a = avg.get(`${evening}:${label}`);
+        return v == null || !a?.n ? null : Number((v / (a.sum / a.n)).toFixed(1));
+    };
 
     const symbols = [...new Set(rows.map((r) => r.symbol))];
     const { rows: tv } = await db.query(
@@ -126,7 +142,8 @@ async function build(days) {
     return {
         days: shown,
         rows: rows.map((r) => {
-            const m = model.get(`${prevDay.get(r.day)}:${r.symbol}`) || {};
+            const evening = prevDay.get(r.day);
+            const m = model.get(`${evening}:${r.symbol}`) || {};
             return {
                 day: r.day,
                 symbol: r.symbol,
@@ -140,6 +157,8 @@ async function build(days) {
                 liquid: !/-(BE|BZ|SM|ST)$/.test(r.symbol) && (avgValue.get(r.symbol) ?? 0) >= LIQUID_MIN_VALUE,
                 chanceUp2: pct(m.chanceUp2),
                 chanceUp4: pct(m.chanceUp4),
+                timesNormalUp2: timesNormal(m.chanceUp2, evening, "p_move_up_2pct"),
+                timesNormalUp4: timesNormal(m.chanceUp4, evening, "p_move_up_4pct"),
                 rankUp4: m.rankUp4 ?? null,
                 expected: pct(m.expected),
             };

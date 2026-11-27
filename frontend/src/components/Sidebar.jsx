@@ -18,6 +18,7 @@ function Sidebar() {
           { to: '/price-groups', label: 'Price Groups' },
           { to: '/trends', label: 'Trend Stocks' },
           { to: '/results', label: 'Upcoming Results' },
+          { to: '/results-reader', label: 'Results Reader' },
           { to: '/verification', label: 'Verification' },
           { to: '/accuracy', label: 'Accuracy' },
           { to: '/model-health', label: 'Model Health' },

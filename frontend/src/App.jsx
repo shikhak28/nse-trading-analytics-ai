@@ -25,6 +25,7 @@ const UpcomingResults = lazy(() => import("./pages/UpcomingResults"));
 const TopPicksHistory = lazy(() => import("./pages/TopPicksHistory"));
 const BigMovers = lazy(() => import("./pages/BigMovers"));
 const UpperCircuit = lazy(() => import("./pages/UpperCircuit"));
+const ResultsReader = lazy(() => import("./pages/ResultsReader"));
 
 function AuthenticatedRoutes() {
   return (
@@ -43,6 +44,7 @@ function AuthenticatedRoutes() {
         <Route path="/top-picks" element={<TopPicksHistory />} />
         <Route path="/big-movers" element={<BigMovers />} />
         <Route path="/upper-circuit" element={<UpperCircuit />} />
+        <Route path="/results-reader" element={<ResultsReader />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />
