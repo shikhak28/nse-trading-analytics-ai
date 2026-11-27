@@ -58,3 +58,6 @@ xai_presentation/
 # WhatsApp session (scripts/whatsappLink.js) and daily picks images
 backend/.whatsapp-auth/
 backend/daily-picks/
+
+# Results PDFs/XBRL uploaded to Results Reader
+backend/report-files/

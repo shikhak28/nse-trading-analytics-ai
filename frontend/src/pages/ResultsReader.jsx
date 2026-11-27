@@ -87,7 +87,7 @@ function Reading({ data }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="font-semibold text-emerald-700 dark:text-emerald-400">Achhi baatein</h3>
+          <h3 className="font-semibold text-emerald-700 dark:text-emerald-400">{data.lang === "hinglish" ? "Achhi baatein" : "Good points"}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {r.good_points.map((p) => (
               <li key={p}>{p}</li>
@@ -95,7 +95,7 @@ function Reading({ data }) {
           </ul>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="font-semibold text-red-700 dark:text-red-400">Chinta ki baatein</h3>
+          <h3 className="font-semibold text-red-700 dark:text-red-400">{data.lang === "hinglish" ? "Chinta ki baatein" : "Concerns"}</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {r.concerns.map((p) => (
               <li key={p}>{p}</li>
@@ -106,7 +106,7 @@ function Reading({ data }) {
 
       {m && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
-          <h3 className="font-semibold">Hamara model kya kehta hai (prediction of {m.day})</h3>
+          <h3 className="font-semibold">What our model says (prediction of {m.day})</h3>
           <p className="mt-1 text-slate-600 dark:text-slate-300">
             Expected move <b className="font-mono">{m.expected >= 0 ? "+" : ""}{m.expected}%</b> · chance of rising 2%+{" "}
             <b className="font-mono">{m.chanceUp2}%</b> · chance of falling 2%+ <b className="font-mono">{m.chanceDown2}%</b>
@@ -117,6 +117,14 @@ function Reading({ data }) {
         </div>
       )}
       <p className="text-xs text-slate-500">
+        {data.hasFile && (
+          <>
+            <a href={`/api/reports/${data.id}/file`} className="text-blue-600 hover:underline dark:text-blue-400">
+              Download the original file
+            </a>
+            {" · "}
+          </>
+        )}
         Read by {data.model}
         {data.cached && " (this PDF was read before; showing the saved reading)"}. AI can misread a table: check key numbers in the
         PDF. Not investment advice.
@@ -128,6 +136,8 @@ function Reading({ data }) {
 function ResultsReader() {
   const [symbol, setSymbol] = useState("");
   const [file, setFile] = useState(null);
+  const [lang, setLang] = useState("english");
+  const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [current, setCurrent] = useState(null);
@@ -149,7 +159,7 @@ function ResultsReader() {
     setError(null);
     try {
       const { data } = await axios.post("/api/reports/explain", file, {
-        params: { symbol: symbol.trim().toUpperCase(), name: file.name },
+        params: { symbol: symbol.trim().toUpperCase(), name: file.name, lang },
         headers: {
           "Content-Type": /\.xml$/i.test(file.name) ? "application/xml" : /\.html?$/i.test(file.name) ? "text/html" : "application/pdf",
         },
@@ -171,7 +181,7 @@ function ResultsReader() {
       <h1 className="text-3xl font-semibold">Results Reader</h1>
       <p className="mt-2 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Upload a company's quarterly results: the PDF, or NSE's XBRL (.xml) or iXBRL (.html) file. AI reads it and explains the numbers in simple
-        words, next to our model's view.
+        words, next to our model's view. Every report is saved below, with its original file.
       </p>
 
       <form onSubmit={submit} className="mt-6 flex flex-wrap items-center gap-3">
@@ -190,6 +200,15 @@ function ResultsReader() {
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           className="text-sm file:mr-3 file:rounded-full file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm dark:file:bg-slate-800 dark:file:text-slate-200"
         />
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          aria-label="Language"
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <option value="english">English</option>
+          <option value="hinglish">Hinglish</option>
+        </select>
         <button
           type="submit"
           disabled={busy || !symbol.trim() || !file}
@@ -204,20 +223,41 @@ function ResultsReader() {
 
       {history.length > 0 && (
         <div className="mt-10">
-          <h2 className="text-base font-semibold">Earlier readings</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold">All saved reports ({history.length})</h2>
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter by symbol"
+              aria-label="Filter saved reports by symbol"
+              className="w-44 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm uppercase dark:border-slate-700 dark:bg-slate-900"
+            />
+          </div>
           <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
-            {history.map((h) => (
-              <li key={h.id}>
-                <button type="button" onClick={() => setCurrent(h)} className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
-                  <span>
-                    <b>{h.symbol}</b> · {h.reading.period_label}
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${(VERDICT[h.reading.verdict] || VERDICT.mixed).cls}`}>
-                    {(VERDICT[h.reading.verdict] || VERDICT.mixed).label}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {history
+              .filter((h) => !filter.trim() || h.symbol.startsWith(filter.trim().toUpperCase()))
+              .map((h) => {
+                const v = VERDICT[h.reading.verdict] || VERDICT.mixed;
+                return (
+                  <li key={h.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+                    <button type="button" onClick={() => setCurrent(h)} className="min-w-0 text-left hover:text-blue-600">
+                      <b>{h.symbol}</b> · {h.reading.period_label}
+                      <span className="ml-2 text-xs text-slate-500">
+                        {h.lang === "hinglish" ? "Hinglish" : "English"} · read {new Date(h.createdAt).toLocaleDateString("en-IN")}
+                      </span>
+                    </button>
+                    <span className="flex items-center gap-3">
+                      {h.hasFile && (
+                        <a href={`/api/reports/${h.id}/file`} className="text-xs text-blue-600 hover:underline dark:text-blue-400">
+                          File
+                        </a>
+                      )}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${v.cls}`}>{v.label}</span>
+                    </span>
+                  </li>
+                );
+              })}
           </ul>
         </div>
       )}

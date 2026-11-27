@@ -1,4 +1,6 @@
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const db = require("../config/db");
 const { readPdfAsJson } = require("./gemini");
 const { getPriceGroupStocks } = require("./prediction.service");
@@ -27,16 +29,23 @@ const SCHEMA = {
         eps_prev_year: { ...num, description: "Basic EPS in rupees, same period last year" },
         operating_margin_pct: { ...num, description: "EBITDA or operating profit as % of revenue, this period" },
         operating_margin_prev_year_pct: { ...num, description: "Same margin, same period last year" },
-        summary: { type: "STRING", description: "2-3 short sentences in simple Hinglish (Roman script)" },
-        good_points: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 4 short points, simple Hinglish" },
-        concerns: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 4 short points, simple Hinglish" },
+        summary: { type: "STRING", description: "2-3 short sentences" },
+        good_points: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 4 short points" },
+        concerns: { type: "ARRAY", items: { type: "STRING" }, description: "Up to 4 short points" },
         verdict: { type: "STRING", enum: ["strong", "mixed", "weak"] },
-        verdict_reason: { type: "STRING", description: "One short sentence, simple Hinglish" },
+        verdict_reason: { type: "STRING", description: "One short sentence" },
     },
     required: ["company", "period_label", "unit", "summary", "good_points", "concerns", "verdict", "verdict_reason"],
 };
 
-function prompt(company, modelView) {
+// Uploaded files are kept here, named by their SHA-256.
+const FILE_DIR = path.resolve(__dirname, "..", "report-files");
+const LANGS = {
+    english: "very simple, plain English, short sentences",
+    hinglish: "very simple Hinglish (Hindi in Roman script mixed with easy English words), short sentences",
+};
+
+function prompt(company, modelView, lang) {
     return [
         `This document is a financial results filing of ${company.company_name} (NSE: ${company.symbol}): a PDF, or the`,
         "filing's XBRL facts / web page as text.",
@@ -45,7 +54,7 @@ function prompt(company, modelView) {
         "- If only this quarter and the half-year total are given, previous quarter = half-year total minus this quarter.",
         "- Take numbers exactly from the report's tables. Prefer consolidated figures if both are given. Leave a number null if it is not in the report; never guess.",
         "- All money figures in the single unit you report in `unit`.",
-        "- Write summary, good_points, concerns and verdict_reason in very simple Hinglish (Hindi in Roman script mixed with easy English words), short sentences, for someone who is not a finance expert. Mention growth versus last year in %.",
+        `- Write summary, good_points, concerns and verdict_reason in ${LANGS[lang]}, for someone who is not a finance expert. Mention growth versus last year (or last quarter) in %.`,
         "- verdict: strong = sales and profit both grew well; weak = profit fell or a loss; mixed = in between.",
         "- Do not give buy or sell advice.",
         modelView
@@ -83,6 +92,8 @@ function present(row, modelView) {
         id: row.id,
         symbol: row.symbol,
         fileName: row.file_name,
+        hasFile: Boolean(row.file_path),
+        lang: row.lang,
         createdAt: row.created_at,
         model: row.model,
         reading: r,
@@ -141,7 +152,8 @@ function documentFrom(buf) {
     return null;
 }
 
-async function explainReport({ symbol, pdf, fileName }) {
+async function explainReport({ symbol, pdf, fileName, lang = "english" }) {
+    if (!LANGS[lang]) lang = "english";
     const sym = String(symbol || "").trim().toUpperCase();
     const { rows: comp } = await db.query(`SELECT symbol, company_name FROM companies WHERE exchange = 'NSE' AND symbol = $1`, [sym]);
     if (!comp.length) throw Object.assign(new Error(`Unknown NSE symbol: ${sym}`), { status: 400 });
@@ -150,32 +162,51 @@ async function explainReport({ symbol, pdf, fileName }) {
 
     const sha = crypto.createHash("sha256").update(pdf).digest("hex");
     const modelView = await modelViewFor(sym);
-    const { rows: seen } = await db.query(`SELECT * FROM financial_reports WHERE symbol = $1 AND file_sha256 = $2`, [sym, sha]);
+    const { rows: seen } = await db.query(`SELECT * FROM financial_reports WHERE symbol = $1 AND file_sha256 = $2 AND lang = $3`, [
+        sym,
+        sha,
+        lang,
+    ]);
     if (seen.length) return { ...present(seen[0], modelView), cached: true };
 
-    const { json: r, model } = await readPdfAsJson({ ...doc, prompt: prompt(comp[0], modelView), schema: SCHEMA });
+    const { json: r, model } = await readPdfAsJson({ ...doc, prompt: prompt(comp[0], modelView, lang), schema: SCHEMA });
+    // Keep the original file, so every report can be opened again later.
+    const ext = doc.pdf ? ".pdf" : /\.html?$/i.test(fileName || "") ? ".html" : ".xml";
+    const filePath = `${sha}${ext}`;
+    fs.mkdirSync(FILE_DIR, { recursive: true });
+    if (!fs.existsSync(path.join(FILE_DIR, filePath))) fs.writeFileSync(path.join(FILE_DIR, filePath), pdf);
     const periodEnd = /^\d{4}-\d{2}-\d{2}$/.test(r.period_end || "") ? r.period_end : null;
     const { rows } = await db.query(
         `INSERT INTO financial_reports
            (symbol, period_label, period_end, consolidated, unit, revenue, revenue_prev_year, net_profit, net_profit_prev_year,
-            eps, eps_prev_year, verdict, reading, file_name, file_sha256, model)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+            eps, eps_prev_year, verdict, reading, file_name, file_sha256, model, lang, file_path)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
          RETURNING *`,
         [
             sym, r.period_label ?? null, periodEnd, r.consolidated ?? null, r.unit ?? null,
             r.revenue ?? null, r.revenue_prev_year ?? null, r.net_profit ?? null, r.net_profit_prev_year ?? null,
-            r.eps ?? null, r.eps_prev_year ?? null, r.verdict ?? null, r, fileName ?? null, sha, model,
+            r.eps ?? null, r.eps_prev_year ?? null, r.verdict ?? null, r, fileName ?? null, sha, model, lang, filePath,
         ]
     );
     return { ...present(rows[0], modelView), cached: false };
 }
 
-async function listReports({ symbol, limit = 50 } = {}) {
+async function listReports({ symbol, limit = 200 } = {}) {
     const { rows } = await db.query(
-        `SELECT * FROM financial_reports WHERE ($1::text IS NULL OR symbol = $1) ORDER BY created_at DESC LIMIT $2`,
-        [symbol ? String(symbol).toUpperCase() : null, Math.min(Number(limit) || 50, 200)]
+        `SELECT * FROM financial_reports WHERE ($1::text IS NULL OR symbol LIKE $1 || '%') ORDER BY created_at DESC LIMIT $2`,
+        [symbol ? String(symbol).toUpperCase() : null, Math.min(Number(limit) || 200, 500)]
     );
     return rows.map((row) => present(row));
 }
 
-module.exports = { explainReport, listReports };
+/** The uploaded file of a reading: { path, name } or null. */
+async function reportFile(id) {
+    const { rows } = await db.query(`SELECT file_path, file_name, symbol FROM financial_reports WHERE id = $1`, [Number(id) || 0]);
+    const row = rows[0];
+    if (!row?.file_path || !/^[0-9a-f]{64}\.(pdf|xml|html)$/.test(row.file_path)) return null;
+    const full = path.join(FILE_DIR, row.file_path);
+    if (!fs.existsSync(full)) return null;
+    return { path: full, name: row.file_name || `${row.symbol}-results${path.extname(row.file_path)}` };
+}
+
+module.exports = { explainReport, listReports, reportFile };
