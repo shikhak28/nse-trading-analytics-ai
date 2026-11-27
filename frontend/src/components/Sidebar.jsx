@@ -12,6 +12,7 @@ function Sidebar() {
           { to: '/agent', label: 'AI Agent' },
           { to: '/history', label: 'History' },
           { to: '/predictions', label: 'Predictions' },
+          { to: '/top-picks', label: 'Top 5 History' },
           { to: '/price-groups', label: 'Price Groups' },
           { to: '/trends', label: 'Trend Stocks' },
           { to: '/results', label: 'Upcoming Results' },

@@ -21,6 +21,7 @@ const accuracyRoutes = require("./routes/accuracy.routes");
 const modelRoutes = require("./routes/model.routes");
 const rankingRoutes = require("./routes/ranking.routes");
 const eventsRoutes = require("./routes/events.routes");
+const shareRoutes = require("./routes/share.routes");
 const marketSocket = require("./realtime/marketSocket");
 const { sessionMiddleware, isOwner, requireOwner } = require("./middleware/session");
 
@@ -32,6 +33,10 @@ app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json());
 app.use(sessionMiddleware);
+
+// Shareable read-only report: its own key check, so it sits before the
+// owner-only gate on /api.
+app.use("/api/share", shareRoutes);
 
 app.use(
   ["/market", "/agent", "/portfolio", "/gtt", "/orders", "/api", "/model", "/ranking"],

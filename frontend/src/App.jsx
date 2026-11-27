@@ -5,7 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { ThemeProvider } from "./context/ThemeContext";
 import ConnectZerodha from "./components/Auth/ConnectZerodha";
 import AppLayout from "./components/AppLayout";
-import { lazy } from "react";
+import { lazy, Suspense } from "react";
 
 // Each page loads only when opened, so the first visit doesn't download
 // every page (and its chart libraries) up front.
@@ -22,6 +22,7 @@ const Accuracy = lazy(() => import("./pages/Accuracy"));
 const ModelHealth = lazy(() => import("./pages/ModelHealth"));
 const TrendStocks = lazy(() => import("./pages/TrendStocks"));
 const UpcomingResults = lazy(() => import("./pages/UpcomingResults"));
+const TopPicksHistory = lazy(() => import("./pages/TopPicksHistory"));
 
 function AuthenticatedRoutes() {
   return (
@@ -37,6 +38,7 @@ function AuthenticatedRoutes() {
         <Route path="/price-groups" element={<PriceGroupPredictions />} />
         <Route path="/trends" element={<TrendStocks />} />
         <Route path="/results" element={<UpcomingResults />} />
+        <Route path="/top-picks" element={<TopPicksHistory />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/accuracy" element={<Accuracy />} />
         <Route path="/model-health" element={<ModelHealth />} />
@@ -68,7 +70,27 @@ function AppShell() {
   );
 }
 
+// /share/top-picks?k=... is the read-only report for people without a login:
+// it renders outside the Zerodha login gate and the app layout.
+function SharedTopPicks() {
+  const key = new URLSearchParams(window.location.search).get("k") || "";
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <Suspense fallback={null}>
+        <TopPicksHistory shareKey={key} />
+      </Suspense>
+    </div>
+  );
+}
+
 function App() {
+  if (window.location.pathname.startsWith("/share/top-picks")) {
+    return (
+      <ThemeProvider>
+        <SharedTopPicks />
+      </ThemeProvider>
+    );
+  }
   return (
     <ThemeProvider>
       <AuthProvider>
