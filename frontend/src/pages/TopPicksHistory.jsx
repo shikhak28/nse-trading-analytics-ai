@@ -9,7 +9,7 @@ import { formatDay } from "../utils/tradingDays";
 const LISTS = [
   { key: "up4", label: "Rise 4%+", value: "chanceUp4", valueLabel: "Confidence", threshold: 4, hitLabel: "Rose 4%+?" },
   { key: "up2", label: "Rise 2%+", value: "chanceUp2", valueLabel: "Confidence", threshold: 2, hitLabel: "Rose 2%+?" },
-  { key: "exp", label: "Expected move", value: "expected", valueLabel: "Expected move", threshold: null, hitLabel: "Went up?" },
+  { key: "exp", label: "Biggest Expected Movers", value: "expected", valueLabel: "Expected move", threshold: null, hitLabel: "Went up?" },
 ];
 const UNIVERSES = [
   { key: "liquid", label: "Liquid only" },
@@ -22,7 +22,7 @@ const signed = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 function Toggle({ label, options, value, onChange }) {
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={label}>
-      <span className="w-16 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="w-full text-[11px] sm:w-16 uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</span>
       {options.map((o) => (
         <button
           key={o.key}
@@ -117,7 +117,75 @@ function TopPicksHistory({ shareKey }) {
             </p>
           )}
 
-          <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          {/* Phones: one card per day. */}
+          <div className="mt-3 grid gap-3 sm:hidden">
+            {days.map((d) => {
+              const picks = d.lists[list][universe].filter((p) => p.actual != null);
+              return (
+                <div key={d.day} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold">{formatDay(d.day)}</span>
+                    {d.resultDay && <span className="text-xs text-slate-500">result {formatDay(d.resultDay)}</span>}
+                  </div>
+                  {!picks.length ? (
+                    <p className="mt-2 text-sm italic text-slate-500">
+                      {list === "up4" && !d.hasUp4Model ? "The 4% model was not live yet." : "No stock passed."}
+                    </p>
+                  ) : (
+                    <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-800">
+                      {picks.map((p) => {
+                        const hit = spec.threshold ? p.actual >= spec.threshold : p.actual > 0;
+                        const value = p[spec.value];
+                        return (
+                          <li key={p.symbol} className="py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate font-semibold">{p.symbol}</span>
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  hit
+                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                    : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                                }`}
+                              >
+                                {spec.hitLabel.replace("?", "")}: {hit ? "Yes" : "No"}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                              <span>
+                                {spec.valueLabel}{" "}
+                                <b className="font-mono text-slate-700 dark:text-slate-200">
+                                  {value == null ? "—" : spec.threshold ? `${value.toFixed(1)}%` : signed(value)}
+                                </b>
+                              </span>
+                              <span>
+                                Actual{" "}
+                                <b className={`font-mono ${p.actual > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                                  {signed(p.actual)}
+                                </b>
+                              </span>
+                              {p.openedAt != null && (
+                                <span>
+                                  Opened <b className="font-mono text-slate-700 dark:text-slate-200">{signed(p.openedAt)}</b>
+                                  {p.openedAt >= CIRCUIT_GAP && (
+                                    <span className="ml-1 rounded bg-amber-100 px-1 text-[11px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                      near +5% limit
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Tablets and up: one table. */}
+          <div className="mt-3 hidden overflow-x-auto rounded-xl border border-slate-200 bg-white sm:block dark:border-slate-800 dark:bg-slate-900">
             <table className="w-full min-w-[680px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
